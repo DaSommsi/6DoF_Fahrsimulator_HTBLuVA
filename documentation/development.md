@@ -81,4 +81,69 @@ void processIncomingByte (const byte inByte) {
     }
 }
 ```
+
+Das ist der Code der für die Entgegen nahme des Datenpakets das von SimTools gesendet wird. Hier ist noch die `process_data()` Funktion.
+
+```c
+// parses the data packet from the pc = > x,y,z,Ry ,Rx ,RZ
+void process_data ( char * data ){
+
+    int i = 0;
+    char * tok = strtok ( data , ",") ;
+
+    float arrRaw []={0 ,0 ,0 ,0 ,0 ,0};
+    float arrRateLimited []={0 ,0 ,0 ,0 ,0 ,0};
+
+    while ( tok != NULL ) {
+        double value = ( float ) atof ( tok ) ;
+        float temp = 0.0;
+
+        if( i == 2)
+            temp = mapfloat ( value , 0 , 4094 , -7 , 7) ;// hieve
+        else if( i > 2) // rotations , pitch ,roll ,yaw
+            temp = mapfloat ( value , 0 , 4094 , -30 , 30) *( pi /180.0) ; // these are tuned to this specific platform ,         
+        else // sway , surge
+            temp = mapfloat ( value , 0 , 4094 , -8 , 8) ;
+
+            arrRaw [ i ++] = temp ;
+
+            tok = strtok ( NULL , ",") ;
+    }
+}
+
+float mapfloat ( double x , double in_min , double in_max , double out_min ,double out_max ){
+
+return ( float ) ( x - in_min ) * ( out_max - out_min ) / ( float ) ( in_max -in_min ) + out_min ; 
+}
+```
+
+Das sieht alles sehr komplex aus meiner Meinung nach. Deswegen werde ich das hier einfacher coden und unter dem hier Dokumentieren:
+
+```c
+void setup() {
+  Serial.begin(115200);
+}
+
+void loop() {
+  ProcessIncomingDataFromSimTools();
+}
+
+// Funktionen
+
+// Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie
+void ProcessIncomingDataFromSimTools(){
+  // Überprüft ob Daten im Buffer sind
+  if (Serial.available() > 0){
+    // Daten aus Buffer holen
+    String incomingData = Serial.readStringUntil('X');
+    // Daten ausgeben um zum Testen
+    Serial.println(incomingData);
+  }
+}
+```
+
+Hier haben wir einen effizienteren Code um die Daten zu verarbeiten. Wir haben die Funktion `ProcessIncomingDataFromSimTools()` erstellt, die dauerhaft aufgerufen wird. Diese Funktion überprüft, ob Daten im Buffer sind. Wenn ja, werden die Daten aus dem Buffer geholt und ausgegeben. Dieser Code ist einfacher und effizienter als der ursprüngliche Code. 
+
+Als Beispiel wenn dieser String `<120>,<25>,<255>,<20>,<16>,<189>X` von SimTools über die Serielle Schnitstelle geschickt wird, dann ist der Buffer des ESP32 nicht mehr leer und mit `Serial.readStringUntil('X')` bekommen wir dann `<120>,<25>,<255>,<20>,<16>,<189>`. Jetzt müssen wir diesen String nur noch in einzelne Werte aufteilen und diese dann in die entsprechenden Variablen speichern.
+
 ---
