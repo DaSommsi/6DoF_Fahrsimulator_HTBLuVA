@@ -146,4 +146,40 @@ Hier haben wir einen effizienteren Code um die Daten zu verarbeiten. Wir haben d
 
 Als Beispiel wenn dieser String `<120>,<25>,<255>,<20>,<16>,<189>X` von SimTools über die Serielle Schnitstelle geschickt wird, dann ist der Buffer des ESP32 nicht mehr leer und mit `Serial.readStringUntil('X')` bekommen wir dann `<120>,<25>,<255>,<20>,<16>,<189>`. Jetzt müssen wir diesen String nur noch in einzelne Werte aufteilen und diese dann in die entsprechenden Variablen speichern.
 
+```c
+// Die Funktion extrahiert die Zahlenwerte die in dem Daten String sind und verpackt sie uns in einen Array den wir dann nutzen können
+void ConvertIncomingDataStringToIntArray(int axisData[], const String& inputData){
+  int axisIndex = 0;                // Index für das Array
+  bool insideBracket = false;       // Flag, ob wir gerade zwischen < > sind
+  String currentValue = "";         // Temporäre Speicherung des aktuellen Werts
+
+  
+  for(int i = 0; i<inputData.length(); i++){
+    char currentChar = inputData.charAt(i);
+
+    if(currentChar == '<'){
+      insideBracket = true;
+      currentValue = ""; // Neues Zahlenfragment anfangen
+    }
+    else if(currentChar == '>'){
+      if(insideBracket && axisIndex < 6){
+        axisData[axisIndex++] = currentValue.toInt(); // Umwandlung und Speichern
+      }
+      insideBracket = false;
+    }
+    else if(insideBracket){
+      currentValue += currentChar; // Zeichen anhängen
+    }
+  }
+
+  // Falls weniger als 6 Werte empfangen wurden → Rest auffüllen mit 0
+  while(axisIndex < 6){
+    axisData[axisIndex++] = 0;
+  }
+}
+```
+
+Die Funktion `ConvertIncomingDataStringToIntArray()` dient dazu, einen Datenstring im SimTools-Format wie `<120>,<25>,<255>,<20>,<16>,<189>` auszulesen und die darin enthaltenen Zahlenwerte in ein Integer-Array (`axisDataArray[]`) zu übertragen.
+
+
 ---
