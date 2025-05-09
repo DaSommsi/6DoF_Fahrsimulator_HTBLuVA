@@ -13,17 +13,17 @@ void loop() {
 // Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie
 void ProcessIncomingDataFromSimTools(){
   
-  int axisArray[6];
+  int axisDataArray[6];
   
   // Überprüft ob Daten im Buffer sind
   if (Serial.available() > 0){
     String incomingData = Serial.readStringUntil('\n');     // Daten aus Buffer holen
     Serial.println(incomingData);                           // Daten ausgeben um zum Testen
 
-    ConvertIncomingDataStringToIntArray(axisArray, incomingData);
+    ConvertIncomingDataStringToIntArray(axisDataArray, incomingData);
 
     for(int i = 0; i<6; i++){
-      Serial.print(axisArray[i]);
+      Serial.print(axisDataArray[i]);
     }
   }
 }
