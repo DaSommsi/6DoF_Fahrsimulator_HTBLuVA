@@ -181,5 +181,13 @@ void ConvertIncomingDataStringToIntArray(int axisData[], const String& inputData
 
 Die Funktion `ConvertIncomingDataStringToIntArray()` dient dazu, einen Datenstring im SimTools-Format wie `<120>,<25>,<255>,<20>,<16>,<189>` auszulesen und die darin enthaltenen Zahlenwerte in ein Integer-Array (`axisDataArray[]`) zu übertragen.
 
+| **Array Position** | **Achse / Bewegung** |
+| --------------- | -------------------- |
+| **1**      | Surge                |
+| **2**      | Sway                 |
+| **3**      | Heave                |
+| **4**      | Roll                 |
+| **5**      | Pitch                |
+| **6**      | Yaw                  |
 
 ---
