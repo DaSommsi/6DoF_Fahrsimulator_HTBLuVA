@@ -1,29 +1,41 @@
 #include <Arduino.h>
 
+float rawAxisDataArray[6];
+float normalizedAxisDataArray[6];
+
 void setup() {
   Serial.begin(115200);
 }
 
 void loop() {
-  ProcessIncomingDataFromSimTools();
+  ProcessIncomingDataFromSimTools(rawAxisDataArray, normalizedAxisDataArray);
 }
 
 // Funktionen
 
 // Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie
-void ProcessIncomingDataFromSimTools(){
-  
-  float axisRawDataArray[6];
-  
+void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]){
   // Überprüft ob Daten im Buffer sind
   if (Serial.available() > 0){
     String incomingData = Serial.readStringUntil('\n');     // Daten aus Buffer holen
     Serial.println(incomingData);                           // Daten ausgeben um zum Testen
 
-    ConvertIncomingDataStringToIntArray(axisRawDataArray, incomingData);
+    // Daten von String zu den einzelnen Werten umwandeln
+    ConvertIncomingDataStringToIntArray(rawDataArray, incomingData);
+
+    // Daten zu ihren bestimmten Zahlenbereichen normalisieren
+    for(int i = 0; i<6; i++){
+      if(i == 0 || i == 1){
+        normalizedDataArray[i] = mapFloat(rawDataArray[i], 0, 4096, -8, 8);               // Surge und Sway
+      }else if(i == 2){
+        normalizedDataArray[i] = mapFloat(rawDataArray[i], 0, 4096, -7, 7);               // Heave
+      }else{
+        normalizedDataArray[i] = mapFloat(rawDataArray[i], 0, 4096, -30, 30) * PI/180.0;  // Roll, Pitch und Yaw
+      }
+    }
 
     for(int i = 0; i<6; i++){
-      Serial.println(axisRawDataArray[i]);
+      Serial.print(normalizedDataArray[i]);
     }
   }
 }
