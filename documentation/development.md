@@ -41,7 +41,7 @@ Das Projekt wurde so aufgesetzt, dass der Code für den ESP32 mit PlatformIO ent
 
 #### Datenübertragung von SimTools zu ESP32
 
-Um die Bewegungsdaten der sechs Achsen an den ESP32 zu übertragen, wird in SimTools ein vordefiniertes Kommunikationsprotokoll verwendet(Hinweis: Die Einstellungen dieses Protokolls werden zu einem späteren Zeitpunkt noch folgen). Die Übertragung erfolgt über eine serielle Schnittstelle. Dabei sendet SimTools die Werte für die sechs Achsen in Form der Variablen `Axis1a`, `Axis2a`, `Axis3a`, `Axis4a`, `Axis5a` und `Axis6a`.
+Um die Bewegungsdaten der sechs Achsen an den ESP32 zu übertragen, wird in SimTools ein vordefiniertes Kommunikationsprotokoll verwendet(Hinweis: Die Einstellungen dieses Protokolls werden zu einem späteren Zeitpunkt noch folgen). Die Übertragung erfolgt über eine serielle Schnittstelle. Dabei sendet SimTools die Werte für die sechs Achsen in Form der Variablen `Axis1a`, `Axis2a`, `Axis3a`, `Axis4a`, `Axis5a` und `Axis6a`. Jede Axis ist 12 Bit groß und eine Decimalzahl.
 
 Jede dieser Achsenvariablen steht dabei für eine Bewegungsrichtung oder -achse des Simulators. Diese Rohdaten werden anschließend im Code des ESP32 verarbeitet, um die entsprechenden Motoren gezielt anzusteuern und die Bewegung des Simulators an das Spielgeschehen anzupassen.
 
