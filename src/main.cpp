@@ -58,3 +58,19 @@ void ConvertIncomingDataStringToIntArray(float axisData[], const String& inputDa
     axisData[axisIndex++] = 0;
   }
 }
+
+// Diese Funktion skaliert einen Wert von einem Eingabebereich in einen Zielbereich.
+float mapFloat(double inputValue, double inputMin, double inputMax, double outputMin, double outputMax) {
+    
+    // Schritt 1: Berechne die Position des Eingabewerts im Verhältnis zum Eingabebereich (zwischen 0 und 1)
+    double normalized = (inputValue - inputMin) / (inputMax - inputMin);
+
+    // Schritt 2: Skaliere diesen Wert auf die Größe des Ausgabebereichs
+    double scaled = normalized * (outputMax - outputMin);
+
+    // Schritt 3: Verschiebe den Wert in den gewünschten Ausgabebereich
+    double mappedValue = scaled + outputMin;
+
+    // Ergebnis zurückgeben als float
+    return (float)mappedValue;
+}
