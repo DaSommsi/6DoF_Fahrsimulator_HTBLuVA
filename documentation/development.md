@@ -253,6 +253,34 @@ $$
 
 Jetzt wird nur noch der Wert um den Ausgabeminimum verschoben. Dadurch das unser Minimum immer bei `0` steht ist das überflüssig. Aber ich habe es trotzdem in die Funktion eingebaut. Das Ergebnis des Umskalieren ist dann `50`. Das ist der Wert, den wir mit der Funktion `mapFloat()` erhalten.
 
+
+Im Original Code wird die Funktion `mapFloat()` Funktion schon verwendet und sie haben gleich die Wert in ihre neuen Größen umgeskaliert. Das werden wir jetzt noch für unsere Werte auch machen. Das hier sind die Skalierungen die verwendet wurden:
+
+| **Array Position** | **Achse / Bewegung** | **Eingabebereich** | **Ausgabebereich** |
+| ------------------ | -------------------- | ------------------ | ------------------ |
+| **1**      | Surge                | 0-4096                  | -8 - 8                  |
+| **2**      | Sway                 | 0-4096                  | -8 - 8                  |
+| **3**      | Heave                | 0-4096                  | -7 - 7                  |
+| **4**      | Roll                 | 0-4096                  | -30 - 30 *(pi/180.0)    |
+| **5**      | Pitch                | 0-4096                  | -30 - 30 *(pi/180.0)    |
+| **6**      | Yaw                  | 0-4096                  | -30 - 30 *(pi/180.0)    |
+
+Wir man auch erkennen kann sind bei Roll, Pitch und Yaw die Ausgabewerte in Radiant umgerechnet. Das ist ist wichtig für die Berechnungne später aber jetzt werden wir die Umrechnung in den Code implemntieren:
+
+```c
+for(int i = 0; i<6; i++){
+      if(i == 0 || i == 1){
+        normalizedDataArray[i] = mapFloat(rawDataArray[i], 0, 4096, -8, 8);               // Surge und Sway
+      }else if(i == 2){
+        normalizedDataArray[i] = mapFloat(rawDataArray[i], 0, 4096, -7, 7);               // Heave
+      }else{
+        normalizedDataArray[i] = mapFloat(rawDataArray[i], 0, 4096, -30, 30) * PI/180.0;  // Roll, Pitch und Yaw
+      }
+    }
+```
+
+Das ist die for-Schleife die die rohen Daten in ihren neuen Größen umskalieren.
+
 ---
 
 #### Verstehen des AC Servo Drivers
