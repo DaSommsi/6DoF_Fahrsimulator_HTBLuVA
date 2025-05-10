@@ -198,13 +198,60 @@ Die Funktion `ConvertIncomingDataStringToIntArray()` dient dazu, einen Datenstri
 Hier ist nochmal visualisiert welcher Wert in welchem Array-Position landet.
 
 Jetzt fehlt nur noch was wir noch nicht im Code umgestetzt haben und das ist dieser Teil:
+
 ```c
 float mapfloat ( double x , double in_min , double in_max , double out_min ,double out_max ){
   return ( float ) ( x - in_min ) * ( out_max - out_min ) / ( float ) ( in_max -in_min ) + out_min ; 
 }
 ```
 
-Und die Umsaklierung der Werte in ihre entsprechenden Größen damit wir sie zum berechnen nutzen können.
+Und die Umsaklierung der Werte in ihre entsprechenden Größen zubekommen werde ich die Funktion `mapFloat()` umschreiben damit sie besser lesbar ist:
+
+```c
+// Diese Funktion skaliert einen Wert von einem Eingabebereich in einen Zielbereich.
+float mapFloat(double inputValue, double inputMin, double inputMax, double outputMin, double outputMax) {
+    
+    // Schritt 1: Berechne die Position des Eingabewerts im Verhältnis zum Eingabebereich (zwischen 0 und 1)
+    double normalized = (inputValue - inputMin) / (inputMax - inputMin);
+
+    // Schritt 2: Skaliere diesen Wert auf die Größe des Ausgabebereichs
+    double scaled = normalized * (outputMax - outputMin);
+
+    // Schritt 3: Verschiebe den Wert in den gewünschten Ausgabebereich
+    double mappedValue = scaled + outputMin;
+
+    // Ergebnis zurückgeben als float
+    return (float)mappedValue;
+}
+```
+
+Das ist die fertige `mapFloat()` Funktion. Um ein bessers Verständnis zuerlangen werden wir es kurz durchrechnen.
+
+Beispiel: `inputValue = 100`, `inputMin = 0`, `inputMax = 200`, `outputMin = 0`, `outputMax = 100`
+
+Wir werden mit dem ersten Teil anfangen:
+```c
+double normalized = (inputValue - inputMin) / (inputMax - inputMin);
+```
+Das sieht dann mit unseren Werten so aus:
+
+$$
+\frac{100-0}{200-0} = \frac{100}{200} = 0.5
+$$
+
+Die `0.5` kann man auch als `50%` sehen. Das bedeutet, dass der Eingabewert 100 im Eingabebereich 0-200 50% des Bereichs ausmacht. Jetzt skalieren wir den Wert auf den Ausgabebereich:
+
+```c
+double scaled = normalized * (outputMax - outputMin);
+```
+
+Rechnung mit Werte:
+
+$$
+0.5*(100-0) = 0.5*(100) = 50
+$$
+
+Jetzt wird nur noch der Wert um den Ausgabeminimum verschoben. Dadurch das unser Minimum immer bei `0` steht ist das überflüssig. Aber ich habe es trotzdem in die Funktion eingebaut. Das Ergebnis des Umskalieren ist dann `50`. Das ist der Wert, den wir mit der Funktion `mapFloat()` erhalten.
 
 ---
 
