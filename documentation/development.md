@@ -16,6 +16,11 @@
 - Projekt für PlatformIO eingerichtet, um den ESP32-Code kompatibel zu machen
 - Kopieren und Dokumentieren des aktuell vorhandenem Code
 
+## 📅 Datum: 010.05.2025
+### 📝 Zusammenfassung
+- Arbeit an Datenübergabe
+- Verstehen des AC Servo Drivers
+
 ### 🔍 Detaillierte Beschreibung
 
 #### GitHub Repository
@@ -190,4 +195,48 @@ Die Funktion `ConvertIncomingDataStringToIntArray()` dient dazu, einen Datenstri
 | **5**      | Pitch                |
 | **6**      | Yaw                  |
 
+Hier ist nochmal visualisiert welcher Wert in welchem Array-Position landet.
+
+Jetzt fehlt nur noch was wir noch nicht im Code umgestetzt haben und das ist dieser Teil:
+```c
+float mapfloat ( double x , double in_min , double in_max , double out_min ,double out_max ){
+  return ( float ) ( x - in_min ) * ( out_max - out_min ) / ( float ) ( in_max -in_min ) + out_min ; 
+}
+```
+
+Und die Umsaklierung der Werte in ihre entsprechenden Größen damit wir sie zum berechnen nutzen können.
+
 ---
+
+#### Verstehen des AC Servo Drivers
+
+Im Datenblatt des Drivers sind mehrer Parameter beschrieben, die wir nutzen können um die Bewegungen zu berechnen:
+
+| **Parameter**   | **Name / Bedeutung**                            | **Empfohlene Einstellung**                                      | **Hinweis**                                  |
+| --------------- | ----------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------- |
+| `Pn002`         | Control Mode                                    | `2` = **Position Control Mode**                                 | Muss gesetzt sein                            |
+| `Pn096`         | Command Pulse Input Mode                        | `0` = Pulse+Direction (häufig)                                  | Alternativen: `1` = CW/CCW, `2` = Quadratur  |
+| `Pn097`         | Logic der Pulseingabe (Dir Invertierung)        | `0` = normal                                                    | `1` = invertierte Richtung                   |
+| `Pn098`         | Elektronisches Getriebe – Zähler (Numerator)    | z. B. `1000`                                                    | Stellt Schrittauflösung ein                  |
+| `Pn102`         | Elektronisches Getriebe – Nenner (Denominator)  | z. B. `1`                                                       | → `1000:1` bedeutet 1000 Pulse pro Umdrehung |
+| `Pn117`         | Position command source selection               | `0` = Externe Pulsquelle                                        | Sonst: `1` = interne Positionstabelle        |
+| `Pn132`         | Umschaltlogik Speed ↔ Position                  | `0` = Nur bei Stillstand möglich                                | Sicherheit                                   |
+| `Pn052`–`Pn055` | SigIn 1–4 Funktion (z. B. Servo ON, Cmode etc.) | Typischerweise: `1=Servo ON`, `19=Cmode`, ...                   | Siehe unten                                  |
+| `Pn070`         | Input Logic – Signal Pegel invertieren          | Default: `32691` (Binary: invertierte Logik auf manchen Inputs) | Kann relevant sein                           |
+
+In unserer Diplomarbeit (siehe Seite 130) haben wir die grundlegenden Einstellungen des AC Servo Drivers beschrieben. Um zu verstehen, wie dieser funktioniert, müssen wir den Position Control Mode genauer betrachten. In diesem Modus sendet unser ESP32 Mikrocontroller zwei wichtige Signale an den Servo Driver: DIR (Direction) und PULS.
+
+DIR (Direction): Gibt die Drehrichtung des Motors an und ist entweder auf HIGH oder LOW gesetzt.
+
+PULS: Steuert die Anzahl der Schritte, die der Motor bei jedem Impuls dreht. Die Auflösung dieses Impulses hängt von zwei Parametern des Drivers ab: Pn098 (Molekül) und Pn102 (Nenner).
+
+Berechnung der Auflösung
+Die Auflösung des Motors wird durch das Verhältnis von 360° (Vollumdrehung) zur Anzahl der Pulses pro Umdrehung bestimmt. Wenn wir den Pn098 auf 1000 und den Pn102 auf 1 setzen, bedeutet das, dass der Motor 1000 Puls pro Umdrehung benötigt.
+
+Die mathematische Berechnung lautet:
+
+$$
+\frac{360^\circ}{\frac{Pn098}{Pn102}} = \frac{360^\circ}{\frac{1000 Puls}{1}} = \frac{360^\circ}{1000 Puls} = 0,36 \, \text{Grad pro Puls}
+$$
+
+Das bedeutet, dass bei jedem Puls, den wir an den Motor senden, dieser sich um 0,36 Grad in die vorgegebene Richtung dreht.
