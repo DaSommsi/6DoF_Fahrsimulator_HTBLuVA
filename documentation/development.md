@@ -251,7 +251,7 @@ $$
 0.5*(100-0) = 0.5*(100) = 50
 $$
 
-Jetzt wird nur noch der Wert um den Ausgabeminimum verschoben. Dadurch das unser Minimum immer bei `0` steht ist das überflüssig. Aber ich habe es trotzdem in die Funktion eingebaut. Das Ergebnis des Umskalieren ist dann `50`. Das ist der Wert, den wir mit der Funktion `mapFloat()` erhalten.
+Jetzt wird nur noch der Wert um den Ausgabeminimum verschoben. Das Ergebnis des Umskalieren ist dann `50`. Das ist der Wert, den wir mit der Funktion `mapFloat()` erhalten.
 
 
 Im Original Code wird die Funktion `mapFloat()` Funktion schon verwendet und sie haben gleich die Wert in ihre neuen Größen umgeskaliert. Das werden wir jetzt noch für unsere Werte auch machen. Das hier sind die Skalierungen die verwendet wurden:
@@ -281,6 +281,116 @@ for(int i = 0; i<6; i++){
 
 Das ist die for-Schleife die die rohen Daten in ihren neuen Größen umskalieren.
 
+#### Berechnung der Servorotationen zur Plattformbewegung
+
+Beim ersten Durchsehen des Codes für das Diplomprojekt wurde mir schnell klar, dass die Berechnung der Servorotationen zur gezielten Bewegung der Plattform äußerst komplex ist. Hier ist der Code zu Referenz:
+
+```c
+float getAlpha(int i, volatile float arr[]) {
+    // For Platform Coord algorithm
+    float platformPDx[6] = {0};
+    float platformPDy[6] = {0};
+    float platformAngle[6] = {0};
+    float platformCoordsx[6] = {0};
+    float platformCoordsy[6] = {0};
+    float basePDx[6] = {0};
+    float basePDy[6] = {0};
+    float baseAngle[6] = {0};
+    float baseCoordsx[6] = {0};
+    float baseCoordsy[6] = {0};
+    float DxMultiplier[6] = {1, 1, 1, -1, -1, -1};
+    float AngleMultiplier[6] = {1, -1, 1, 1, -1, 1};
+    float OffsetAngle[6] = {pi / 6, pi / 6, -pi / 2, -pi / 2, pi / 6, pi / 6};
+
+    float platformPivotx[6] = {0};
+    float platformPivoty[6] = {0};
+    float platformPivotz[6] = {0};
+
+    float deltaLx[6] = {0};
+    float deltaLy[6] = {0};
+    float deltaLz[6] = {0};
+    float deltaL2Virtual[6] = {0};
+
+    float l[6] = {0};
+    float m[6] = {0};
+    float n[6] = {0};
+    float alpha[6] = {0};
+
+    platformPDx[i] = DxMultiplier[i] * RD;
+    platformPDy[i] = RD;
+    platformAngle[i] = OffsetAngle[i] + AngleMultiplier[i] * radians(theta_r);
+
+    platformCoordsx[i] = platformPDx[i] * cos(platformAngle[i]);
+    platformCoordsy[i] = platformPDy[i] * sin(platformAngle[i]);
+
+    basePDx[i] = DxMultiplier[i] * PD;
+    basePDy[i] = PD;
+    baseAngle[i] = OffsetAngle[i] + AngleMultiplier[i] * radians(theta_p);
+
+    baseCoordsx[i] = basePDx[i] * cos(baseAngle[i]);
+    baseCoordsy[i] = basePDy[i] * sin(baseAngle[i]);
+
+    // Platform pivots
+    platformPivotx[i] = platformCoordsx[i] * cos(arr[3]) * cos(arr[5]) +
+                        platformCoordsy[i] * (sin(arr[4]) * sin(arr[3]) * cos(arr[3]) - cos(arr[4]) * sin(arr[5])) + arr[0];
+    platformPivoty[i] = platformCoordsx[i] * cos(arr[4]) * sin(arr[5]) +
+                        platformCoordsy[i] * (cos(arr[3]) * cos(arr[5]) + sin(arr[3]) * sin(arr[4]) * sin(arr[5])) + arr[1];
+    platformPivotz[i] = -platformCoordsx[i] * sin(arr[3]) +
+                        platformCoordsy[i] * sin(arr[4]) * cos(arr[3]) + platformHeight + arr[2];
+
+    deltaLx[i] = baseCoordsx[i] - platformPivotx[i];
+    deltaLy[i] = baseCoordsy[i] - platformPivoty[i];
+    deltaLz[i] = -platformPivotz[i];
+
+    deltaL2Virtual[i] = sqrt(pow(deltaLx[i], 2.0) + pow(deltaLy[i], 2.0) + pow(deltaLz[i], 2.0));
+
+    l[i] = pow(deltaL2Virtual[i], 2.0) - (pow(ConnectingArmLengthL2, 2.0) - pow(ServoArmLengthL1, 2.0));
+    m[i] = 2 * ServoArmLengthL1 * platformPivotz[i];
+    n[i] = 2 * ServoArmLengthL1 * (cos(theta_s[i] * pi / 180) * (platformPivotx[i] - baseCoordsx[i]) +
+                                   sin(theta_s[i] * pi / 180) * (platformPivoty[i] - baseCoordsy[i]));
+
+    return asin(l[i] / sqrt(pow(m[i], 2.0) + pow(n[i], 2.0))) - atan(n[i] / m[i]);
+}
+```
+
+Das ist der Code für die Berechnung. Leider sind keine Kommentare vorhanden, um die Funktionsweise zu erklären. Auch in der Diplomarbeit steht nicht wie man zu dieser Lösung gekommen ist deswegen habe ich mich hingesetzt und versucht herauszufinden wie das umgesetzt wurde. Nach einer Weile habe ich herausgefunden das das eine Stewart-Platform ist und das wahrscheinlich der Code anhand dem gemacht wurde. Der kommende Text wurde aus diesem [PDF](https://cdn.instructables.com/ORIG/FFI/8ZXW/I55MMY14/FFI8ZXWI55MMY14.pdf) verfasst.
+
+Um das Konzept einer Stewart-Platform zu verstehen, ist es wichtig zu wissen, dass sie aus zwei Plattformen besteht, die durch sechs Gelenke miteinander verbunden sind. Die Basis stellt dabei die feste Referenz dar und hat die Koordinaten $x, y, z$, während die bewegliche Plattform durch die Koordinaten $x', y', z'$ beschrieben wird. Diese Plattform kann sich in 6 Freiheitsgraden gegenüber der Basis bewegen: drei translatorische und drei rotatorische Bewegungen.
+
+Die Position der Plattform kann durch einen Displacement-Vektor relativ zur Basis beschrieben werden. Zusätzlich wird die Ausrichtung der Plattform in Bezug auf die Basis durch drei Winkelverschiebungen definiert. Diese werden mit einem Satz von Eulerwinkeln beschrieben, der die folgende Reihenfolge von Drehungen umfasst:
+
+1. Drehung um den Winkel ψ (Yaw) um die z-Achse
+2. Drehung um den Winkel θ (Pitch) um die y-Achse
+3. Drehung um den Winkel φ (Roll) um die x-Achse
+
+Wir werden als erstes die Rotations Matrix für $R_z (\psi)$ erstellen:
+$$
+R_z (\psi) = \begin{bmatrix}cos(\psi) & -sin(\psi) & 0 \\ sin(\psi) & cos(\psi) & 0 \\ 0 & 0 & 1\end{bmatrix}
+$$
+
+Als nächstes werden wir die Rotations Matrix für $R_y (\theta)$ erstellen:
+$$
+R_z (\theta) = \begin{bmatrix}cos(\theta) & 0 & sin(\theta) \\ 0 & 1 & 0 \\ -sin(\theta) & 0 & cos(\theta)\end{bmatrix}
+$$
+
+Und dann noch die Rotations Matrix für $R_x (\phi)$:
+$$
+R_z (\phi) = \begin{bmatrix}1 & 0 & 0 \\ 0 & cos(\phi) & -sin(\phi) \\ 0 & sin(\phi) & cos(\phi)\end{bmatrix}
+$$
+
+Jetzt müssen wir nur mehr die ganze Rotations Matrix für die Platform berechnen:
+$$
+R^P_B = R_x (\phi) \cdot R_y (\theta) \cdot R_z (\psi)
+\\\
+\\
+R^P_B = \begin{bmatrix}cos(\psi) & -sin(\psi) & 0 \\ sin(\psi) & cos(\psi) & 0 \\ 0 & 0 & 1\end{bmatrix} \cdot \begin{bmatrix}cos(\theta) & 0 & sin(\theta) \\ 0 & 1 & 0 \\ -sin(\theta) & 0 & cos(\theta)\end{bmatrix} \cdot \begin{bmatrix}1 & 0 & 0 \\ 0 & cos(\phi) & -sin(\phi) \\ 0 & sin(\phi) & cos(\phi)\end{bmatrix}
+\\\
+\\
+R^P_B = \begin{bmatrix}cos(\psi)cos(\theta) & -sin(\psi) & cos(\psi)sin(\theta) \\ sin(\psi)cos(\theta) & cos(\psi) & sin(\psi)sin(\theta) \\ -sin(\theta) & 0 & cos(\theta)\end{bmatrix} \cdot \begin{bmatrix}1 & 0 & 0 \\ 0 & cos(\phi) & -sin(\phi) \\ 0 & sin(\phi) & cos(\phi)\end{bmatrix}
+\\\
+\\
+R^P_B = \begin{bmatrix}cos(\psi)cos(\theta) & -sin(\psi)cos(\phi)+cos(\psi)sin(\theta)sin(\phi) & sin(\psi)sin(\phi)+cos(\psi)sin(\theta)cos(\psi) \\ sin(\psi)cos(\theta) & cos(\psi)cos(\phi)+sin(\psi)sin(\theta)sin(\psi) & -cos(\psi)sin(\phi)+sin(\psi)sin(\theta)cos(\psi) \\ -sin(\theta) & cos(\theta)sin(\phi) & cos(\theta)cos(\phi)\end{bmatrix}
+$$
 ---
 
 #### Verstehen des AC Servo Drivers
