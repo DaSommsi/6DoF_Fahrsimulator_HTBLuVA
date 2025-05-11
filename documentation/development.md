@@ -366,13 +366,24 @@ Die Position der Plattform kann durch einen Displacement-Vektor relativ zur Basi
 Wir werden als erstes die Rotations Matrix für $R_z (\psi)$ erstellen:
 
 $$
-R_z (\psi) = \begin{bmatrix}cos(\psi) & -sin(\psi) & 0 \\ sin(\psi) & cos(\psi) & 0 \\ 0 & 0 & 1\end{bmatrix}
+R_z (\psi) = 
+\begin{bmatrix}
+cos(\psi) & -sin(\psi) & 0 
+\\ sin(\psi) & cos(\psi) & 0 
+\\ 0 & 0 & 1
+\end{bmatrix}
 $$
 
 Als nächstes werden wir die Rotations Matrix für $R_y (\theta)$ erstellen:
 
 $$
-R_z (\theta) = \begin{bmatrix}cos(\theta) & 0 & sin(\theta) \\ 0 & 1 & 0 \\ -sin(\theta) & 0 & cos(\theta)\end{bmatrix}
+R_z (\theta) = 
+\begin{bmatrix}
+cos(\theta) & 0 & sin(\theta)
+\\
+0 & 1 & 0\\
+-sin(\theta) & 0 & cos(\theta)
+\end{bmatrix}
 $$
 
 Und dann noch die Rotations Matrix für $R_x (\phi)$:
