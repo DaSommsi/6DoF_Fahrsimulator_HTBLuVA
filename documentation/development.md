@@ -369,8 +369,10 @@ $$
 R_z (\psi) = 
 \begin{bmatrix}
 cos(\psi) & -sin(\psi) & 0 
-\\ sin(\psi) & cos(\psi) & 0 
-\\ 0 & 0 & 1
+\\ 
+sin(\psi) & cos(\psi) & 0 
+\\ 
+0 & 0 & 1
 \end{bmatrix}
 $$
 
@@ -389,7 +391,14 @@ $$
 Und dann noch die Rotations Matrix für $R_x (\phi)$:
 
 $$
-R_z (\phi) = \begin{bmatrix}1 & 0 & 0 \\ 0 & cos(\phi) & -sin(\phi) \\ 0 & sin(\phi) & cos(\phi)\end{bmatrix}
+R_z (\phi) = 
+\begin{bmatrix}
+1 & 0 & 0 
+\\
+ 0 & cos(\phi) & -sin(\phi) 
+ \\ 
+ 0 & sin(\phi) & cos(\phi)
+ \end{bmatrix}
 $$
 
 Jetzt müssen wir nur mehr die ganze Rotations Matrix für die Platform berechnen:
@@ -399,15 +408,58 @@ R^P_B = R_x(\phi) \cdot R_y(\theta) \cdot R_z(\psi)
 $$
 
 $$
-R^P_B = \begin{bmatrix}cos(\psi)&-sin(\psi)&0 \\ sin(\psi)&cos(\psi)& 0 \\ 0&0&1\end{bmatrix} \cdot \begin{bmatrix}cos(\theta)&0&sin(\theta) \\ 0&1&0 \\ -sin(\theta)&0&cos(\theta)\end{bmatrix} \cdot \begin{bmatrix}1&0&0 \\ 0&cos(\phi)&-sin(\phi) \\ 0&sin(\phi)&cos(\phi)\end{bmatrix}
+R^P_B = 
+\begin{bmatrix}
+cos(\psi)&-sin(\psi)&0 
+\\ 
+sin(\psi)&cos(\psi)& 0 
+\\ 
+0 & 0 & 1 
+\end{bmatrix} 
+\cdot 
+\begin{bmatrix}
+cos(\theta) & 0 & sin(\theta) 
+\\ 
+0 & 1 & 0 
+\\ 
+-sin(\theta) & 0 & cos(\theta)
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+1 & 0 & 0 
+\\ 
+0 & cos(\phi) & -sin(\phi) 
+\\ 
+0 & sin(\phi) & cos(\phi)
+\end{bmatrix}
 $$
 
 $$
-R^P_B = \begin{bmatrix}cos(\psi)cos(\theta) & -sin(\psi) & cos(\psi)sin(\theta) \\ sin(\psi)cos(\theta) & cos(\psi) & sin(\psi)sin(\theta) \\ -sin(\theta) & 0 & cos(\theta)\end{bmatrix} \cdot \begin{bmatrix}1 & 0 & 0 \\ 0 & cos(\phi) & -sin(\phi) \\ 0 & sin(\phi) & cos(\phi)\end{bmatrix}
+R^P_B = 
+\begin{bmatrix}
+cos(\psi)cos(\theta) & -sin(\psi) & cos(\psi)sin(\theta) 
+\\
+sin(\psi)cos(\theta) & cos(\psi) & sin(\psi)sin(\theta) 
+\\ 
+-sin(\theta) & 0 & cos(\theta)
+\end{bmatrix} 
+\cdot 
+\begin{bmatrix}1 & 0 & 0 
+\\ 
+0 & cos(\phi) & -sin(\phi) 
+\\ 
+0 & sin(\phi) & cos(\phi)
+\end{bmatrix}
 $$
 
 $$
-R^P_B = \begin{bmatrix}cos(\psi)cos(\theta) & -sin(\psi)cos(\phi)+cos(\psi)sin(\theta)sin(\phi) & sin(\psi)sin(\phi)+cos(\psi)sin(\theta)cos(\psi) \\ sin(\psi)cos(\theta) & cos(\psi)cos(\phi)+sin(\psi)sin(\theta)sin(\psi) & -cos(\psi)sin(\phi)+sin(\psi)sin(\theta)cos(\psi) \\ -sin(\theta) & cos(\theta)sin(\phi) & cos(\theta)cos(\phi)\end{bmatrix}
+R^P_B = 
+\begin{bmatrix}cos(\psi)cos(\theta) & -sin(\psi)cos(\phi)+cos(\psi)sin(\theta)sin(\phi) & sin(\psi)sin(\phi)+cos(\psi)sin(\theta)cos(\psi) 
+\\ 
+sin(\psi)cos(\theta) & cos(\psi)cos(\phi)+sin(\psi)sin(\theta)sin(\psi) & -cos(\psi)sin(\phi)+sin(\psi)sin(\theta)cos(\psi) 
+\\ 
+-sin(\theta) & cos(\theta)sin(\phi) & cos(\theta)cos(\phi)
+\end{bmatrix}
 $$
 
 ---
