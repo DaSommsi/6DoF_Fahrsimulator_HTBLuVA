@@ -35,7 +35,7 @@ void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataA
     }
 
     for(int i = 0; i<6; i++){
-      Serial.print(normalizedDataArray[i]);
+      Serial.println(normalizedDataArray[i]);
     }
   }
 }
