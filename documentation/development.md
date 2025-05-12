@@ -16,10 +16,14 @@
 - Projekt für PlatformIO eingerichtet, um den ESP32-Code kompatibel zu machen
 - Kopieren und Dokumentieren des aktuell vorhandenem Code
 
-## 📅 Datum: 010.05.2025
+## 📅 Datum: 10.05.2025
 ### 📝 Zusammenfassung
 - Arbeit an Datenübergabe
 - Verstehen des AC Servo Drivers
+
+## 📅 Datum: 12.05.2025
+### 📝 Zusammenfassung
+- Berechnungen von Rotations Matrix fertiggemacht und in den Code hinzugefügt
 
 ### 🔍 Detaillierte Beschreibung
 
@@ -461,6 +465,8 @@ sin(\psi)cos(\theta) & cos(\psi)cos(\phi)+sin(\psi)sin(\theta)sin(\psi) & -cos(\
 -sin(\theta) & cos(\theta)sin(\phi) & cos(\theta)cos(\phi)
 \end{bmatrix}
 $$
+
+Jetzt werden wir dazu eine Funktion schreiben die uns die Rotation Matrix aus den drei Winkeln $\psi$, $\theta$ und $\phi$ berrechnet.
 
 ---
 
