@@ -1,7 +1,10 @@
 #include <Arduino.h>
+#include <math.h>
 
 float rawAxisDataArray[6];
 float normalizedAxisDataArray[6];
+
+float calculatedRotationMatrix[3][3];
 
 void setup() {
   Serial.begin(115200);
@@ -26,11 +29,11 @@ void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataA
     // Daten zu ihren bestimmten Zahlenbereichen normalisieren
     for(int i = 0; i<6; i++){
       if(i == 0 || i == 1){
-        normalizedDataArray[i] = mapFloat(rawDataArray[i], 0, 4096, -8, 8);               // Surge und Sway
+        normalizedDataArray[i] = MapFloat(rawDataArray[i], 0, 4096, -8, 8);               // Surge und Sway
       }else if(i == 2){
-        normalizedDataArray[i] = mapFloat(rawDataArray[i], 0, 4096, -7, 7);               // Heave
+        normalizedDataArray[i] = MapFloat(rawDataArray[i], 0, 4096, -7, 7);               // Heave
       }else{
-        normalizedDataArray[i] = mapFloat(rawDataArray[i], 0, 4096, -30, 30) * PI/180.0;  // Roll, Pitch und Yaw
+        normalizedDataArray[i] = MapFloat(rawDataArray[i], 0, 4096, -30, 30) * PI/180.0;  // Roll, Pitch und Yaw
       }
     }
 
@@ -72,7 +75,7 @@ void ConvertIncomingDataStringToIntArray(float axisData[], const String& inputDa
 }
 
 // Diese Funktion skaliert einen Wert von einem Eingabebereich in einen Zielbereich.
-float mapFloat(double inputValue, double inputMin, double inputMax, double outputMin, double outputMax) {
+float MapFloat(double inputValue, double inputMin, double inputMax, double outputMin, double outputMax) {
     
     // Schritt 1: Berechne die Position des Eingabewerts im Verhältnis zum Eingabebereich (zwischen 0 und 1)
     double normalized = (inputValue - inputMin) / (inputMax - inputMin);
@@ -85,4 +88,42 @@ float mapFloat(double inputValue, double inputMin, double inputMax, double outpu
 
     // Ergebnis zurückgeben als float
     return (float)mappedValue;
+}
+
+float CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]){
+  CalculateRotationMatrix(normalizedAxisDataArray, calculatedRotationMatrix);
+
+  for(int i = 0; i<3; i++){
+    for(int j = 0; j<3; j++){
+      Serial.print(rotationMatrix[i][j]);
+      Serial.print(", ");
+    }
+    Serial.print("\n");
+  }  
+}
+
+float CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]) {
+  float psi = normalizedDataArray[5];     // Roll
+  float theta = normalizedDataArray[4];   // Pitch
+  float phi = normalizedDataArray[3];     // Yaw
+  
+  
+  // Berechnung der Rotationmatrix
+/*  rotationMatrix = {
+    {cos(psi)*cos(theta), (-sin(psi)*cos(phi)) + (cos(psi)*sin(theta)*sin(phi)), (sin(psi)*sin(phi)) + (cos(psi)*sin(theta)*cos(phi))},
+    {sin(psi)*cos(theta), (cos(psi)*cos(phi)) + (sin(psi)*sin(theta)*sin(phi)), (-cos(psi)*sin(phi)) + (sin(psi)*sin(theta)*cos(phi))},
+    {-sin(theta),         cos(theta)*sin(phi),                                  cos(theta)*cos(phi)}
+    };*/
+
+  rotationMatrix[0][0] = cos(psi) * cos(theta);
+  rotationMatrix[0][1] = -sin(psi) * cos(phi) + cos(psi) * sin(theta) * sin(phi);
+  rotationMatrix[0][2] = sin(psi) * sin(phi) + cos(psi) * sin(theta) * cos(phi);
+
+  rotationMatrix[1][0] = sin(psi) * cos(theta);
+  rotationMatrix[1][1] = cos(psi) * cos(phi) + sin(psi) * sin(theta) * sin(phi);
+  rotationMatrix[1][2] = -cos(psi) * sin(phi) + sin(psi) * sin(theta) * cos(phi);
+
+  rotationMatrix[2][0] = -sin(theta);
+  rotationMatrix[2][1] = cos(theta) * sin(phi);
+  rotationMatrix[2][2] = cos(theta) * cos(phi);  
 }
