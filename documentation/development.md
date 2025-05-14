@@ -532,6 +532,45 @@ const float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
                                                   {62.5}};
 ```
 
+Jetzt müssen wir noch die konstante $b_i$ erstellen. **Wichtig** ist das $b_i$ nicht oben aufliegt auf der Basis sondern genau auf der Höhe der Servos liegt deswegen muss später das bei $h_o$ berrücksichtigt werden.
+
+```c
+const float BASE_SERVO_COORDINATES[6][3] = {{-23, -38.7, 0}, // Links unten
+                                            {-45, 0, 0}, // Links mitte
+                                            {-23, 38.7, 0}, // Links oben
+                                            {23, 38.7, 0}, // Rechts oben
+                                            {45, 0, 0}, // Rechts mitte
+                                            {23, 38.7, 0}}; // Rechts unten
+```
+
+Jetzt werden wir die Funktion erstellen um $l_i$ zu berechnen. Wir werden die Funktion `CalculateSegmentLength` nennen:
+
+```c
+// Berechnet die Segment Länge für den i-ten Servo
+float CalculateSegmentLength(float rotationMatrix[3][3], int index){
+  // Multipliziert die Rotationsmatrix mit dem Verbingungs Punkt an der Platform
+  float tempPoint[3][1];
+
+  for(int i = 0; i<3; i++){
+    for(int j = 0; j<3; j++){
+      tempPoint[i][1] = rotationMatrix[i][j] * PLATFORM_JOINT_COORDINATES[index][j];
+    }
+  }
+
+  // Berechnung von dem Vector segmentLenght
+  float segmentLength[3][1];
+
+  segmentLength[1][1] = PLATFORM_TO_BASE_DISPLACMENT[1][1] + tempPoint[1][1] - BASE_SERVO_COORDINATES[index][1];
+  segmentLength[2][1] = PLATFORM_TO_BASE_DISPLACMENT[2][1] + tempPoint[2][1] - BASE_SERVO_COORDINATES[index][2];
+  segmentLength[1][1] = PLATFORM_TO_BASE_DISPLACMENT[3][1] + tempPoint[3][1] - BASE_SERVO_COORDINATES[index][3];
+
+  // Berechnet Betrag von dem Vector
+  return sqrt(pow(segmentLength[1][1], 2) + pow(segmentLength[2][1], 2) + pow(segmentLength[3][1], 2));
+}
+```
+
+Die Funktion `CalculateSegmentLength` nimmt die Rotationsmatrix und den Index des Servos als Argument und gibt die Länge des Segments zwischen dem Servo und der Plattform zurück.
+
 ---
 
 #### Verstehen des AC Servo Drivers
