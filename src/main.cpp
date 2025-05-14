@@ -21,6 +21,13 @@ const float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
                                                   {0.0},
                                                   {62.5}};
 
+const float BASE_SERVO_COORDINATES[6][3] = {{-23, -38.7, 0}, // Links unten
+                                            {-45, 0, 0}, // Links mitte
+                                            {-23, 38.7, 0}, // Links oben
+                                            {23, 38.7, 0}, // Rechts oben
+                                            {45, 0, 0}, // Rechts mitte
+                                            {23, 38.7, 0}}; // Rechts unten
+
 // Funktionen
 
 void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]);
@@ -116,13 +123,11 @@ float MapFloat(double inputValue, double inputMin, double inputMax, double outpu
 void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]){
   CalculateRotationMatrix(normalizedAxisDataArray, calculatedRotationMatrix);
 
-  for(int i = 0; i<3; i++){
-    for(int j = 0; j<3; j++){
-      Serial.print(rotationMatrix[i][j]);
-      Serial.print(", ");
-    }
-    Serial.print("\n");
-  }  
+  for(int i = 0; i<6; i++){
+    Serial.print(CalculateSegmentLength(calculatedRotationMatrix, i));
+    Serial.print(", "); 
+  }
+  Serial.print("\n");
 }
 
 // Berechnet die Rotationmatrix aus den gegebenen Werten
@@ -150,4 +155,26 @@ void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3
   rotationMatrix[2][0] = -sin(theta);
   rotationMatrix[2][1] = cos(theta) * sin(phi);
   rotationMatrix[2][2] = cos(theta) * cos(phi);
+}
+
+// Berechnet die Segment Länge für den i-ten Servo
+float CalculateSegmentLength(float rotationMatrix[3][3], int index){
+  // Multipliziert die Rotationsmatrix mit dem Verbingungs Punkt an der Platform
+  float tempPoint[3][1];
+
+  for(int i = 0; i<3; i++){
+    for(int j = 0; j<3; j++){
+      tempPoint[i][1] = rotationMatrix[i][j] * PLATFORM_JOINT_COORDINATES[index][j];
+    }
+  }
+
+  // Berechnung von dem Vector segmentLenght
+  float segmentLength[3][1];
+
+  segmentLength[1][1] = PLATFORM_TO_BASE_DISPLACMENT[1][1] + tempPoint[1][1] - BASE_SERVO_COORDINATES[index][1];
+  segmentLength[2][1] = PLATFORM_TO_BASE_DISPLACMENT[2][1] + tempPoint[2][1] - BASE_SERVO_COORDINATES[index][2];
+  segmentLength[1][1] = PLATFORM_TO_BASE_DISPLACMENT[3][1] + tempPoint[3][1] - BASE_SERVO_COORDINATES[index][3];
+
+  // Berechnet Betrag von dem Vector
+  return sqrt(pow(segmentLength[1][1], 2) + pow(segmentLength[2][1], 2) + pow(segmentLength[3][1], 2));
 }
