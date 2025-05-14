@@ -468,6 +468,70 @@ $$
 
 Jetzt werden wir dazu eine Funktion schreiben die uns die Rotation Matrix aus den drei Winkeln $\psi$, $\theta$ und $\phi$ berrechnet.
 
+Das hier ist der Code für das ganze:
+
+```c
+void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]) {
+  float psi = normalizedDataArray[5];     // Roll
+  float theta = normalizedDataArray[4];   // Pitch
+  float phi = normalizedDataArray[3];     // Yaw
+  
+  
+  // Berechnung der Rotationmatrix
+/*  rotationMatrix = {
+    {cos(psi)*cos(theta), (-sin(psi)*cos(phi)) + (cos(psi)*sin(theta)*sin(phi)), (sin(psi)*sin(phi)) + (cos(psi)*sin(theta)*cos(phi))},
+    {sin(psi)*cos(theta), (cos(psi)*cos(phi)) + (sin(psi)*sin(theta)*sin(phi)), (-cos(psi)*sin(phi)) + (sin(psi)*sin(theta)*cos(phi))},
+    {-sin(theta),         cos(theta)*sin(phi),                                  cos(theta)*cos(phi)}
+    };*/
+
+  rotationMatrix[0][0] = cos(psi) * cos(theta);
+  rotationMatrix[0][1] = -sin(psi) * cos(phi) + cos(psi) * sin(theta) * sin(phi);
+  rotationMatrix[0][2] = sin(psi) * sin(phi) + cos(psi) * sin(theta) * cos(phi);
+
+  rotationMatrix[1][0] = sin(psi) * cos(theta);
+  rotationMatrix[1][1] = cos(psi) * cos(phi) + sin(psi) * sin(theta) * sin(phi);
+  rotationMatrix[1][2] = -cos(psi) * sin(phi) + sin(psi) * sin(theta) * cos(phi);
+
+  rotationMatrix[2][0] = -sin(theta);
+  rotationMatrix[2][1] = cos(theta) * sin(phi);
+  rotationMatrix[2][2] = cos(theta) * cos(phi);  
+}
+```
+
+Danach habe ich noch eine Funktion erstellt die `CalculateServoAlpha` heißt. Hier sind dann alle Funktionen die dann aufgerufen werden um das Alpha für jeden Servo zu berechnen.
+
+##### Berechnung des $l_i$
+
+Der $l_i$ ist die Länge des i-ten Segments die von der Position des Servos auf der Basis bis zur Position des i-ten Knoten reicht. Wir berechnen $l_i$ mit dieser Formel:
+$$
+l_i = T + R^P_b * p_i - b_i
+$$
+
+- $T$ ist das Displacment der Platform zu der Basis. Wir werden hier annehemen das die Basis auf der Position $(0,0,0)$ liegt. Das bedeutet $T = (0,0,h_0)$. $h_0$ ist die Höhe der Platform wenn nicht geschehen ist also die Home Position.
+- $R^P_b$ ist die Rotation Matrix von der Mitte der Platform zu den einzelnen Knoten.
+- $p_i$ ist die Position des i-ten Knoten.
+- $b_i$ ist die Position des i-ten Servos auf der Basis.
+
+Wir werden Anfangen in dem wir die Konstanten Werte in Arrays speichern werden um immer auf sie zuzugreifen können.
+Wir fangen mit den $p_i$ an sie sind alle von der Mitte der Platform aus zu den Punkt. Wir fangen auf der linken unteren Seite an und gehen gegen den Uhrzeigersinn. Alle Maße sind in cm.
+
+```c
+const float PLATFORM_JOINT_COORDINATES[6][3] = {{-15.0, -55.5, 0}, // Links unten
+                                                {-54.5, 14.5, 0}, // Links mitte
+                                                {-39.5, 39.5, 0}, // Links oben
+                                                {39.5, 39.5, 0}, // Rechts oben
+                                                {54.5, 14.5, 0}, // Rechts mitte
+                                                {15, -55.5, 0}}; // Rechts unten
+```
+
+Wir machen weiter mit $T$. Dadurch das ich aktuell nicht die genauen Maße habe, werde ich einen Wert schätzen und nehme `62,5`.
+
+```c
+const float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
+                                                  {0.0},
+                                                  {62.5}};
+```
+
 ---
 
 #### Verstehen des AC Servo Drivers
