@@ -6,6 +6,14 @@ float normalizedAxisDataArray[6];
 
 float calculatedRotationMatrix[3][3];
 
+// Funktionen
+
+void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]);
+float MapFloat(double inputValue, double inputMin, double inputMax, double outputMin, double outputMax);
+void ConvertIncomingDataStringToIntArray(float axisData[], const String& inputData);
+void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]);
+void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]);
+
 void setup() {
   Serial.begin(115200);
 }
@@ -90,7 +98,7 @@ float MapFloat(double inputValue, double inputMin, double inputMax, double outpu
     return (float)mappedValue;
 }
 
-float CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]){
+void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]){
   CalculateRotationMatrix(normalizedAxisDataArray, calculatedRotationMatrix);
 
   for(int i = 0; i<3; i++){
@@ -102,7 +110,7 @@ float CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3
   }  
 }
 
-float CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]) {
+void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]) {
   float psi = normalizedDataArray[5];     // Roll
   float theta = normalizedDataArray[4];   // Pitch
   float phi = normalizedDataArray[3];     // Yaw
