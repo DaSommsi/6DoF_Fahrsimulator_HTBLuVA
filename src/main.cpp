@@ -1,10 +1,25 @@
 #include <Arduino.h>
 #include <math.h>
 
+// Globale Variablen
+
 float rawAxisDataArray[6];
 float normalizedAxisDataArray[6];
 
 float calculatedRotationMatrix[3][3];
+
+// Globale Konstanten (in cm)
+
+const float PLATFORM_JOINT_COORDINATES[6][3] = {{-15.0, -55.5, 0}, // Links unten
+                                                {-54.5, 14.5, 0}, // Links mitte
+                                                {-39.5, 39.5, 0}, // Links oben
+                                                {39.5, 39.5, 0}, // Rechts oben
+                                                {54.5, 14.5, 0}, // Rechts mitte
+                                                {15, -55.5, 0}}; // Rechts unten
+
+const float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
+                                                  {0.0},
+                                                  {62.5}};
 
 // Funktionen
 
@@ -110,6 +125,7 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
   }  
 }
 
+// Berechnet die Rotationmatrix aus den gegebenen Werten
 void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]) {
   float psi = normalizedDataArray[5];     // Roll
   float theta = normalizedDataArray[4];   // Pitch
@@ -133,5 +149,5 @@ void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3
 
   rotationMatrix[2][0] = -sin(theta);
   rotationMatrix[2][1] = cos(theta) * sin(phi);
-  rotationMatrix[2][2] = cos(theta) * cos(phi);  
+  rotationMatrix[2][2] = cos(theta) * cos(phi);
 }
