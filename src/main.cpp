@@ -15,18 +15,18 @@ const float PLATFORM_JOINT_COORDINATES[6][3] = {{-15.0, -55.5, 0}, // Links unte
                                                 {-39.5, 39.5, 0}, // Links oben
                                                 {39.5, 39.5, 0}, // Rechts oben
                                                 {54.5, 14.5, 0}, // Rechts mitte
-                                                {15, -55.5, 0}}; // Rechts unten
+                                                {15.0, -55.5, 0}}; // Rechts unten
 
 const float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
                                                   {0.0},
                                                   {62.5}};
 
-const float BASE_SERVO_COORDINATES[6][3] = {{-23, -38.7, 0}, // Links unten
-                                            {-45, 0, 0}, // Links mitte
-                                            {-23, 38.7, 0}, // Links oben
-                                            {23, 38.7, 0}, // Rechts oben
-                                            {45, 0, 0}, // Rechts mitte
-                                            {23, 38.7, 0}}; // Rechts unten
+const float BASE_SERVO_COORDINATES[6][3] = {{-23.0, -38.7, 0}, // Links unten
+                                            {-45.0, 0, 0}, // Links mitte
+                                            {-23.0, 38.7, 0}, // Links oben
+                                            {23.0, 38.7, 0}, // Rechts oben
+                                            {45.0, 0, 0}, // Rechts mitte
+                                            {23.0, 38.7, 0}}; // Rechts unten
 
 // Funktionen
 
@@ -35,6 +35,7 @@ float MapFloat(double inputValue, double inputMin, double inputMax, double outpu
 void ConvertIncomingDataStringToIntArray(float axisData[], const String& inputData);
 void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]);
 void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]);
+float CalculateSegmentLength(float rotationMatrix[3][3], int index);
 
 void setup() {
   Serial.begin(115200);
@@ -45,6 +46,8 @@ void loop() {
 }
 
 // Funktionen
+
+// <1500>,<2500>,<50>,<60>,<842>,<4000>X
 
 // Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie
 void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]){
@@ -67,9 +70,8 @@ void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataA
       }
     }
 
-    for(int i = 0; i<6; i++){
-      Serial.println(normalizedDataArray[i]);
-    }
+    CalculateServoAlpha(normalizedAxisDataArray, calculatedRotationMatrix);
+
   }
 }
 
@@ -164,17 +166,21 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
 
   for(int i = 0; i<3; i++){
     for(int j = 0; j<3; j++){
-      tempPoint[i][1] = rotationMatrix[i][j] * PLATFORM_JOINT_COORDINATES[index][j];
+      tempPoint[i][1] += rotationMatrix[i][j] * PLATFORM_JOINT_COORDINATES[index][j];
     }
   }
 
   // Berechnung von dem Vector segmentLenght
   float segmentLength[3][1];
 
-  segmentLength[1][1] = PLATFORM_TO_BASE_DISPLACMENT[1][1] + tempPoint[1][1] - BASE_SERVO_COORDINATES[index][1];
-  segmentLength[2][1] = PLATFORM_TO_BASE_DISPLACMENT[2][1] + tempPoint[2][1] - BASE_SERVO_COORDINATES[index][2];
-  segmentLength[1][1] = PLATFORM_TO_BASE_DISPLACMENT[3][1] + tempPoint[3][1] - BASE_SERVO_COORDINATES[index][3];
+  for (int i = 0; i < 3; i++) {
+    segmentLength[i][0] = PLATFORM_TO_BASE_DISPLACMENT[i][0] + tempPoint[i][0] - BASE_SERVO_COORDINATES[index][i];
+  }
 
   // Berechnet Betrag von dem Vector
-  return sqrt(pow(segmentLength[1][1], 2) + pow(segmentLength[2][1], 2) + pow(segmentLength[3][1], 2));
+  return sqrt(
+    pow(segmentLength[0][0], 2) +
+    pow(segmentLength[1][0], 2) +
+    pow(segmentLength[2][0], 2)
+);
 }
