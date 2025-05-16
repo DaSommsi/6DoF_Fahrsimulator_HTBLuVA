@@ -10,18 +10,18 @@ float calculatedRotationMatrix[3][3];
 
 // Globale Konstanten (in cm)
 
-const float PLATFORM_JOINT_COORDINATES[6][3] = {{-15.0, -55.5, 0}, // Links unten
+constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{-15.0, -55.5, 0}, // Links unten
                                                 {-54.5, 14.5, 0}, // Links mitte
                                                 {-39.5, 39.5, 0}, // Links oben
                                                 {39.5, 39.5, 0}, // Rechts oben
                                                 {54.5, 14.5, 0}, // Rechts mitte
                                                 {15.0, -55.5, 0}}; // Rechts unten
 
-const float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
+constexpr float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
                                                   {0.0},
                                                   {62.5}};
 
-const float BASE_SERVO_COORDINATES[6][3] = {{-23.0, -38.7, 0}, // Links unten
+constexpr float BASE_SERVO_COORDINATES[6][3] = {{-23.0, -38.7, 0}, // Links unten
                                             {-45.0, 0, 0}, // Links mitte
                                             {-23.0, 38.7, 0}, // Links oben
                                             {23.0, 38.7, 0}, // Rechts oben
@@ -47,7 +47,7 @@ void loop() {
 
 // Funktionen
 
-// <1500>,<2500>,<50>,<60>,<842>,<4000>X
+// <1500>,<2500>,<50>,<60>,<842>,<4000>X <2048>,<2048>,<2048>,<2048>,<2048>,<4096>X
 
 // Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie
 void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]){
@@ -126,37 +126,8 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
   CalculateRotationMatrix(normalizedAxisDataArray, calculatedRotationMatrix);
 
   for(int i = 0; i<6; i++){
-    Serial.print(CalculateSegmentLength(calculatedRotationMatrix, i));
-    Serial.print(", "); 
+    Serial.print(String(CalculateSegmentLength(calculatedRotationMatrix, i)) + ", ");
   }
-  Serial.print("\n");
-}
-
-// Berechnet die Rotationmatrix aus den gegebenen Werten
-void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]) {
-  float psi = normalizedDataArray[5];     // Roll
-  float theta = normalizedDataArray[4];   // Pitch
-  float phi = normalizedDataArray[3];     // Yaw
-  
-  
-  // Berechnung der Rotationmatrix
-/*  rotationMatrix = {
-    {cos(psi)*cos(theta), (-sin(psi)*cos(phi)) + (cos(psi)*sin(theta)*sin(phi)), (sin(psi)*sin(phi)) + (cos(psi)*sin(theta)*cos(phi))},
-    {sin(psi)*cos(theta), (cos(psi)*cos(phi)) + (sin(psi)*sin(theta)*sin(phi)), (-cos(psi)*sin(phi)) + (sin(psi)*sin(theta)*cos(phi))},
-    {-sin(theta),         cos(theta)*sin(phi),                                  cos(theta)*cos(phi)}
-    };*/
-
-  rotationMatrix[0][0] = cos(psi) * cos(theta);
-  rotationMatrix[0][1] = -sin(psi) * cos(phi) + cos(psi) * sin(theta) * sin(phi);
-  rotationMatrix[0][2] = sin(psi) * sin(phi) + cos(psi) * sin(theta) * cos(phi);
-
-  rotationMatrix[1][0] = sin(psi) * cos(theta);
-  rotationMatrix[1][1] = cos(psi) * cos(phi) + sin(psi) * sin(theta) * sin(phi);
-  rotationMatrix[1][2] = -cos(psi) * sin(phi) + sin(psi) * sin(theta) * cos(phi);
-
-  rotationMatrix[2][0] = -sin(theta);
-  rotationMatrix[2][1] = cos(theta) * sin(phi);
-  rotationMatrix[2][2] = cos(theta) * cos(phi);
 }
 
 // Berechnet die Rotationmatrix aus den gegebenen Werten
@@ -188,12 +159,20 @@ void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3
 
 // Berechnet die Segment Länge für den i-ten Servo
 float CalculateSegmentLength(float rotationMatrix[3][3], int index){
+  
+  // Addiert die Änderung der Platform zu den Platform Joints
+  float platformJoints[3] = {
+    PLATFORM_JOINT_COORDINATES[index][0] + normalizedAxisDataArray[0], // Surge
+    PLATFORM_JOINT_COORDINATES[index][1] + normalizedAxisDataArray[1], // Sway
+    PLATFORM_JOINT_COORDINATES[index][2] + normalizedAxisDataArray[2]  // Heave
+  };
+  
   // Multipliziert die Rotationsmatrix mit dem Verbingungs Punkt an der Platform
   float tempPoint[3][1] = {{0},{0},{0}};
 
   for(int i = 0; i<3; i++){
     for(int j = 0; j<3; j++){
-      tempPoint[i][0] += rotationMatrix[i][j] * PLATFORM_JOINT_COORDINATES[index][j];
+      tempPoint[i][0] += rotationMatrix[i][j] * platformJoints[j];
     }
   }
 
@@ -209,5 +188,5 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
     pow(segmentLength[0][0], 2) +
     pow(segmentLength[1][0], 2) +
     pow(segmentLength[2][0], 2)
-);
+  );
 }
