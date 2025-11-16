@@ -592,24 +592,24 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
   }
 
   // Berechnung von dem Vector segmentLenght
-  float segmentLength[3][1] = {{0},{0},{0}};
+  float segmentLength[3] = {{0},{0},{0}};
 
   // Berechnet den T Vector der das Displacment von der der Mitte der Base zur der Mitte der Platform wieder gibt.
   float translationVector[3] = {
     PLATFORM_TO_BASE_DISPLACMENT[0][0] + normalizedAxisDataArray[0], // Surge
     PLATFORM_TO_BASE_DISPLACMENT[1][0] + normalizedAxisDataArray[1], // Sway
-    PLATFORM_TO_BASE_DISPLACMENT[0][0] + normalizedAxisDataArray[2]  // Heave
+    PLATFORM_TO_BASE_DISPLACMENT[2][0] + normalizedAxisDataArray[2]  // Heave
   };
 
   for (int i = 0; i < 3; i++) {
-    segmentLength[i][0] = translationVector[i] + tempPoint[i][0] - BASE_SERVO_COORDINATES[index][i];
+    segmentLength[i] = translationVector[i] + tempPoint[i][0] - BASE_SERVO_COORDINATES[index][i];
   }
 
   // Berechnet Betrag von dem Vector
   return sqrt(
-    pow(segmentLength[0][0], 2) +
-    pow(segmentLength[1][0], 2) +
-    pow(segmentLength[2][0], 2)
+    pow(segmentLength[0], 2) +
+    pow(segmentLength[1], 2) +
+    pow(segmentLength[2], 2)
   );
 }
 ```
