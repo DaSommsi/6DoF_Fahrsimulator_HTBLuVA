@@ -30,7 +30,7 @@ constexpr float BASE_SERVO_COORDINATES[6][3] = {{23.0, -38.7, 0}, // Rechts unte
 
 // Funktionen
 
-void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]);
+bool ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]);
 float MapFloat(double inputValue, double inputMin, double inputMax, double outputMin, double outputMax);
 void ConvertIncomingDataStringToIntArray(float axisData[], const String& inputData);
 void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]);
@@ -42,15 +42,17 @@ void setup() {
 }
 
 void loop() {
-  ProcessIncomingDataFromSimTools(rawAxisDataArray, normalizedAxisDataArray);
+  if(ProcessIncomingDataFromSimTools(rawAxisDataArray, normalizedAxisDataArray)){
+    CalculateServoAlpha(normalizedAxisDataArray, calculatedRotationMatrix);
+  }
 }
 
 // Funktionen
 
 // <1500>,<2500>,<50>,<60>,<842>,<4000>X <2048>,<2048>,<2048>,<2048>,<2048>,<4096>X
 
-// Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie
-void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]){
+// Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie, gibt True zurück wenn etwas empfangen wurde
+bool ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]){
   // Überprüft ob Daten im Buffer sind
   if (Serial.available() > 0){
     String incomingData = Serial.readStringUntil('\n');     // Daten aus Buffer holen
@@ -69,11 +71,11 @@ void ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataA
         normalizedDataArray[i] = MapFloat(rawDataArray[i], 0, 4096, -30, 30) * PI/180.0;  // Roll, Pitch und Yaw
       }
     }
-
-    CalculateServoAlpha(normalizedAxisDataArray, calculatedRotationMatrix);
-
+    return true;
   }
+  return false;
 }
+
 
 // Die Funktion extrahiert die Zahlenwerte die in dem Daten String sind und verpackt sie uns in einen Array den wir dann nutzen können
 void ConvertIncomingDataStringToIntArray(float axisData[], const String& inputData){
@@ -160,11 +162,11 @@ void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3
 // Berechnet die Segment Länge für den i-ten Servo
 float CalculateSegmentLength(float rotationMatrix[3][3], int index){
   
-  // Addiert die Änderung der Platform zu den Platform Joints
+  // Erstellt platformJoint Vectoren nach den realen Abmessungen
   float platformJoints[3] = {
-    PLATFORM_JOINT_COORDINATES[index][0] + normalizedAxisDataArray[0], // Surge
-    PLATFORM_JOINT_COORDINATES[index][1] + normalizedAxisDataArray[1], // Sway
-    PLATFORM_JOINT_COORDINATES[index][2] + normalizedAxisDataArray[2]  // Heave
+    PLATFORM_JOINT_COORDINATES[index][0],
+    PLATFORM_JOINT_COORDINATES[index][1],
+    PLATFORM_JOINT_COORDINATES[index][2]
   };
   
   // Multipliziert die Rotationsmatrix mit dem Verbingungs Punkt an der Platform
@@ -179,8 +181,15 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
   // Berechnung von dem Vector segmentLenght
   float segmentLength[3][1] = {{0},{0},{0}};
 
+  // Berechnet den T Vector der das Displacment von der der Mitte der Base zur der Mitte der Platform wieder gibt.
+  float translationVector[3] = {
+    PLATFORM_TO_BASE_DISPLACMENT[0][0] + normalizedAxisDataArray[0], // Surge
+    PLATFORM_TO_BASE_DISPLACMENT[1][0] + normalizedAxisDataArray[1], // Sway
+    PLATFORM_TO_BASE_DISPLACMENT[0][0] + normalizedAxisDataArray[2]  // Heave
+  };
+
   for (int i = 0; i < 3; i++) {
-    segmentLength[i][0] = PLATFORM_TO_BASE_DISPLACMENT[i][0] + tempPoint[i][0] - BASE_SERVO_COORDINATES[index][i];
+    segmentLength[i][0] = translationVector[i] + tempPoint[i][0] - BASE_SERVO_COORDINATES[index][i];
   }
 
   // Berechnet Betrag von dem Vector

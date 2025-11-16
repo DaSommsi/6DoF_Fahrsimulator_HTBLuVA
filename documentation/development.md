@@ -575,20 +575,34 @@ void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3
 
 // Berechnet die Segment Länge für den i-ten Servo
 float CalculateSegmentLength(float rotationMatrix[3][3], int index){
+  // Erstellt platformJoint Vectoren nach den realen Abmessungen
+  float platformJoints[3] = {
+    PLATFORM_JOINT_COORDINATES[index][0],
+    PLATFORM_JOINT_COORDINATES[index][1],
+    PLATFORM_JOINT_COORDINATES[index][2]
+  };
+  
   // Multipliziert die Rotationsmatrix mit dem Verbingungs Punkt an der Platform
   float tempPoint[3][1] = {{0},{0},{0}};
 
   for(int i = 0; i<3; i++){
     for(int j = 0; j<3; j++){
-      tempPoint[i][0] += rotationMatrix[i][j] * PLATFORM_JOINT_COORDINATES[index][j];
+      tempPoint[i][0] += rotationMatrix[i][j] * platformJoints[j];
     }
   }
 
   // Berechnung von dem Vector segmentLenght
   float segmentLength[3][1] = {{0},{0},{0}};
 
+  // Berechnet den T Vector der das Displacment von der der Mitte der Base zur der Mitte der Platform wieder gibt.
+  float translationVector[3] = {
+    PLATFORM_TO_BASE_DISPLACMENT[0][0] + normalizedAxisDataArray[0], // Surge
+    PLATFORM_TO_BASE_DISPLACMENT[1][0] + normalizedAxisDataArray[1], // Sway
+    PLATFORM_TO_BASE_DISPLACMENT[0][0] + normalizedAxisDataArray[2]  // Heave
+  };
+
   for (int i = 0; i < 3; i++) {
-    segmentLength[i][0] = PLATFORM_TO_BASE_DISPLACMENT[i][0] + tempPoint[i][0] - BASE_SERVO_COORDINATES[index][i];
+    segmentLength[i][0] = translationVector[i] + tempPoint[i][0] - BASE_SERVO_COORDINATES[index][i];
   }
 
   // Berechnet Betrag von dem Vector
@@ -596,11 +610,37 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
     pow(segmentLength[0][0], 2) +
     pow(segmentLength[1][0], 2) +
     pow(segmentLength[2][0], 2)
-);
+  );
 }
 ```
 
 Die Funktion `CalculateSegmentLength` nimmt die Rotationsmatrix und den Index des Servos als Argument und gibt die Länge des Segments zwischen dem Servo und der Plattform zurück.
+
+##### Berechnung von Servo $\alpha$
+
+Jetzt müssen wir nur mehr den Winkel-$\alpha$ für jeden Servo ausrechnen um dann später die Platform zu bewegen. Wir benutzen die Formel aus diesem [PDF-File](https://cdn.instructables.com/ORIG/FFI/8ZXW/I55MMY14/FFI8ZXWI55MMY14.pdf):
+
+$$
+\alpha = \arcsin(\frac{L}{\sqrt(M^2+N^2)}) - \arctan(\frac{N}{M})
+$$
+
+$$L = l^2 - (s^2 - a^2)$$
+$$M = 2a(z_p - z_b)$$
+$$N = 2a(\cos(\beta)(x_p - x_b) + \sin(\beta)(y_p - y_b))$$
+
+$$
+\alpha = \arcsin(\frac{l^2 - (s^2 - a^2)}{\sqrt((2a(z_p - z_b))^2+(2a(\cos(\beta)(x_p - x_b) + \sin(\beta)(y_p - y_b)))^2)}) - \arctan(\frac{2a(z_p - z_b)}{2a(\cos(\beta)(x_p - x_b) + \sin(\beta)(y_p - y_b))})
+$$
+
+Hier sind die Variablen beschrieben:
+
+$l$: Das ist die Länge die wir schon mit `CalculateSegmentLenght()` berechnet haben<br>
+$a$: Das ist die Länge des Servoarm der von dem Servo angesteuert wird(bei uns wären das `37,5cm`)<br>
+$s$: Das ist die Länge des Arms der am Servoarm befestigt ist(bei uns wären das `72cm`)<br>
+$B_i = [x_b, y_b, z_b]$: Das sind die Koordinaten worum sich der Servoarm dreht bzw. wo der Servo ist<br>
+$P_i = [x_p, y_p, z_p]$: Das sind die Koordinaten, des Punktes wo der Servo die Platform berührt<br>
+
+
 
 ---
 
@@ -620,7 +660,7 @@ Im Datenblatt des Drivers sind mehrer Parameter beschrieben, die wir nutzen kön
 | `Pn052`–`Pn055` | SigIn 1–4 Funktion (z. B. Servo ON, Cmode etc.) | Typischerweise: `1=Servo ON`, `19=Cmode`, ...                   | Siehe unten                                  |
 | `Pn070`         | Input Logic – Signal Pegel invertieren          | Default: `32691` (Binary: invertierte Logik auf manchen Inputs) | Kann relevant sein                           |
 
-In unserer Diplomarbeit (siehe Seite 130) haben wir die grundlegenden Einstellungen des AC Servo Drivers beschrieben. Um zu verstehen, wie dieser funktioniert, müssen wir den Position Control Mode genauer betrachten. In diesem Modus sendet unser ESP32 Mikrocontroller zwei wichtige Signale an den Servo Driver: DIR (Direction) und PULS.
+In der Diplomarbeit (siehe Seite 130) sind die grundlegenden Einstellungen des AC Servo Drivers beschrieben. Um zu verstehen, wie dieser funktioniert, müssen wir den Position Control Mode genauer betrachten. In diesem Modus sendet unser ESP32 Mikrocontroller zwei wichtige Signale an den Servo Driver: DIR (Direction) und PULS.
 
 DIR (Direction): Gibt die Drehrichtung des Motors an und ist entweder auf HIGH oder LOW gesetzt.
 
