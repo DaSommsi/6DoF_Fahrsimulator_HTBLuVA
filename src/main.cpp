@@ -10,23 +10,23 @@ float calculatedRotationMatrix[3][3];
 
 // Globale Konstanten (in cm)
 
-constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{-15.0, -55.5, 0}, // Links unten
-                                                {-54.5, 14.5, 0}, // Links mitte
-                                                {-39.5, 39.5, 0}, // Links oben
-                                                {39.5, 39.5, 0}, // Rechts oben
-                                                {54.5, 14.5, 0}, // Rechts mitte
-                                                {15.0, -55.5, 0}}; // Rechts unten
+constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{15.0, -55.5, 0}, // Rechts unten Point 1
+                                                {54.5, 14.5, 0}, // Rechts mitte  Point 2
+                                                {39.5, 39.5, 0}, // Rechts oben Point 3
+                                                {-39.5, 39.5, 0}, // Links oben Point 4
+                                                {-54.5, 14.5, 0}, // Links mitte  Point 5
+                                                {-15.0, -55.5, 0}}; // Links unten Point 6
 
 constexpr float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
-                                                  {0.0},
-                                                  {62.5}};
+                                                      {0.0},
+                                                      {62.5}};
 
-constexpr float BASE_SERVO_COORDINATES[6][3] = {{-23.0, -38.7, 0}, // Links unten
-                                            {-45.0, 0, 0}, // Links mitte
-                                            {-23.0, 38.7, 0}, // Links oben
-                                            {23.0, 38.7, 0}, // Rechts oben
-                                            {45.0, 0, 0}, // Rechts mitte
-                                            {23.0, -38.7, 0}}; // Rechts unten
+constexpr float BASE_SERVO_COORDINATES[6][3] = {{23.0, -38.7, 0}, // Rechts unten Servo 1
+                                                {45.0, 0, 0}, // Rechts mitte Servo 2
+                                                {23.0, 38.7, 0}, // Rechts oben Servo 3
+                                                {-23.0, 38.7, 0}, // Links oben Servo 4
+                                                {-45.0, 0, 0}, // Links mitte Servo 5
+                                                {-23.0, -38.7, 0}}; // Links unten Servo 6
 
 // Funktionen
 
