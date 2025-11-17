@@ -11,11 +11,11 @@ float calculatedRotationMatrix[3][3];
 // Globale Konstanten (in cm)
 
 constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{15.0, -55.5, 0}, // Rechts unten Point 1
-                                                {54.5, 14.5, 0}, // Rechts mitte  Point 2
-                                                {39.5, 39.5, 0}, // Rechts oben Point 3
-                                                {-39.5, 39.5, 0}, // Links oben Point 4
-                                                {-54.5, 14.5, 0}, // Links mitte  Point 5
-                                                {-15.0, -55.5, 0}}; // Links unten Point 6
+                                                    {54.5, 14.5, 0}, // Rechts mitte  Point 2
+                                                    {39.5, 39.5, 0}, // Rechts oben Point 3
+                                                    {-39.5, 39.5, 0}, // Links oben Point 4
+                                                    {-54.5, 14.5, 0}, // Links mitte  Point 5
+                                                    {-15.0, -55.5, 0}}; // Links unten Point 6
 
 constexpr float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
                                                       {0.0},
@@ -134,9 +134,9 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
 
 // Berechnet die Rotationmatrix aus den gegebenen Werten
 void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]) {
-  float psi = normalizedDataArray[5];     // Roll
+  float psi = normalizedDataArray[3];     // Roll
   float theta = normalizedDataArray[4];   // Pitch
-  float phi = normalizedDataArray[3];     // Yaw
+  float phi = normalizedDataArray[5];     // Yaw
   
   
   // Berechnung der Rotationmatrix
@@ -147,12 +147,12 @@ void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3
     };*/
 
   rotationMatrix[0][0] = cos(psi) * cos(theta);
-  rotationMatrix[0][1] = -sin(psi) * cos(phi) + cos(psi) * sin(theta) * sin(phi);
-  rotationMatrix[0][2] = sin(psi) * sin(phi) + cos(psi) * sin(theta) * cos(phi);
+  rotationMatrix[0][1] = (-sin(psi) * cos(phi)) + (cos(psi) * sin(theta) * sin(phi));
+  rotationMatrix[0][2] = (sin(psi) * sin(phi)) + (cos(psi) * sin(theta) * cos(phi));
 
   rotationMatrix[1][0] = sin(psi) * cos(theta);
-  rotationMatrix[1][1] = cos(psi) * cos(phi) + sin(psi) * sin(theta) * sin(phi);
-  rotationMatrix[1][2] = -cos(psi) * sin(phi) + sin(psi) * sin(theta) * cos(phi);
+  rotationMatrix[1][1] = (cos(psi) * cos(phi)) + (sin(psi) * sin(theta) * sin(phi));
+  rotationMatrix[1][2] = (-cos(psi) * sin(phi)) + (sin(psi) * sin(theta) * cos(phi));
 
   rotationMatrix[2][0] = -sin(theta);
   rotationMatrix[2][1] = cos(theta) * sin(phi);
@@ -170,11 +170,11 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
   };
   
   // Multipliziert die Rotationsmatrix mit dem Verbingungs Punkt an der Platform
-  float tempPoint[3][1] = {{0},{0},{0}};
+  float tempPoint[3] = {{0},{0},{0}};
 
   for(int i = 0; i<3; i++){
     for(int j = 0; j<3; j++){
-      tempPoint[i][0] += rotationMatrix[i][j] * platformJoints[j];
+      tempPoint[i] += rotationMatrix[i][j] * platformJoints[j];
     }
   }
 
@@ -189,7 +189,7 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
   };
 
   for (int i = 0; i < 3; i++) {
-    segmentLength[i] = translationVector[i] + tempPoint[i][0] - BASE_SERVO_COORDINATES[index][i];
+    segmentLength[i] = translationVector[i] + tempPoint[i] - BASE_SERVO_COORDINATES[index][i];
   }
 
   // Berechnet Betrag von dem Vector
