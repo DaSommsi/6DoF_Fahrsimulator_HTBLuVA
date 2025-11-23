@@ -575,11 +575,11 @@ void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3
 
 // Berechnet die Segment Länge für den i-ten Servo
 float CalculateSegmentLength(float rotationMatrix[3][3], int index){
-  // Erstellt platformJoint Vectoren nach den realen Abmessungen
+  // Erstellt platformJoint Vectoren nach den realen Abmessungen, z ist 0 weil es von der mitte der Platform ausgehen soll und nicht von der Base
   float platformJoints[3] = {
     PLATFORM_JOINT_COORDINATES[index][0],
     PLATFORM_JOINT_COORDINATES[index][1],
-    PLATFORM_JOINT_COORDINATES[index][2]
+    0
   };
   
   // Multipliziert die Rotationsmatrix mit dem Verbingungs Punkt an der Platform
@@ -637,6 +637,7 @@ Hier sind die Variablen beschrieben:
 $l$: Das ist die Länge die wir schon mit `CalculateSegmentLenght()` berechnet haben<br>
 $a$: Das ist die Länge des Servoarm der von dem Servo angesteuert wird(bei uns wären das `37,5cm`)<br>
 $s$: Das ist die Länge des Arms der am Servoarm befestigt ist(bei uns wären das `72cm`)<br>
+$beta$: Das ist die der Winkel in dem der Servo zum Koordinaten System in Grad<br>
 $B_i = [x_b, y_b, z_b]$: Das sind die Koordinaten worum sich der Servoarm dreht bzw. wo der Servo ist<br>
 $P_i = [x_p, y_p, z_p]$: Das sind die Koordinaten, des Punktes wo der Servo die Platform berührt<br>
 
