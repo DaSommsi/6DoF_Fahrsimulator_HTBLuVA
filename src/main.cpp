@@ -10,16 +10,14 @@ float calculatedRotationMatrix[3][3];
 
 // Globale Konstanten (in cm)
 
-constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{15.0, -55.5, 0}, // Rechts unten Point 1
-                                                    {54.5, 14.5, 0}, // Rechts mitte  Point 2
-                                                    {39.5, 39.5, 0}, // Rechts oben Point 3
-                                                    {-39.5, 39.5, 0}, // Links oben Point 4
-                                                    {-54.5, 14.5, 0}, // Links mitte  Point 5
-                                                    {-15.0, -55.5, 0}}; // Links unten Point 6
+constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{15.0, -55.5, 62.5}, // Rechts unten Point 1
+                                                    {54.5, 14.5, 62.5}, // Rechts mitte  Point 2
+                                                    {39.5, 39.5, 62.5}, // Rechts oben Point 3
+                                                    {-39.5, 39.5, 62.5}, // Links oben Point 4
+                                                    {-54.5, 14.5, 62.5}, // Links mitte  Point 5
+                                                    {-15.0, -55.5, 62.5}}; // Links unten Point 6
 
-constexpr float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
-                                                      {0.0},
-                                                      {62.5}};
+constexpr float PLATFORM_TO_BASE_DISPLACMENT[3] = {{0.0}, {0.0}, {62.5}};
 
 constexpr float BASE_SERVO_COORDINATES[6][3] = {{23.0, -38.7, 0}, // Rechts unten Servo 1
                                                 {45.0, 0, 0}, // Rechts mitte Servo 2
@@ -27,6 +25,11 @@ constexpr float BASE_SERVO_COORDINATES[6][3] = {{23.0, -38.7, 0}, // Rechts unte
                                                 {-23.0, 38.7, 0}, // Links oben Servo 4
                                                 {-45.0, 0, 0}, // Links mitte Servo 5
                                                 {-23.0, -38.7, 0}}; // Links unten Servo 6
+
+const float SERVOARM_ARM_LENGHT = 72.0f;
+const float SERVOARM_LENGHT = 37.5f;
+
+const float SERVO_BETA[6] = {30, 0, 150, 150, 0, 30};
 
 // Funktionen
 
@@ -127,8 +130,43 @@ float MapFloat(double inputValue, double inputMin, double inputMax, double outpu
 void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]){
   CalculateRotationMatrix(normalizedAxisDataArray, calculatedRotationMatrix);
 
-  for(int i = 0; i<6; i++){
-    Serial.print(String(CalculateSegmentLength(calculatedRotationMatrix, i)) + ", ");
+  float servoAlpha = 0.0f;
+
+  for (int i = 0; i < 6; i++){
+    
+    // ######### Öfter verwendete in Berechnungen #########
+
+    float segmentLength = CalculateSegmentLength(calculatedRotationMatrix, i);
+    float cosBeta = cos(SERVO_BETA[i] * PI / 180);
+    float sinBeta = sin(SERVO_BETA[i] * PI / 180);
+    float _2a = (2 * SERVOARM_LENGHT);
+
+    float dx = PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0];
+    float dy = PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1];
+    float dz = PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2];
+
+    float ax = _2a * dz;
+    float ay = _2a * (cosBeta * dx + sinBeta * dy);  // oft benutzter Term
+
+    float r2 = ax*ax + ay*ay;      // ersetzt pow() + sqrt später
+    float r = sqrt(r2);
+
+    // ######### Berechnung #########
+
+    float num = segmentLength*segmentLength 
+            - (SERVOARM_ARM_LENGHT*SERVOARM_ARM_LENGHT 
+            - SERVOARM_LENGHT*SERVOARM_LENGHT);
+
+    float asinTerm = asin(num / r);
+
+    // atan-Term
+    float atanTerm = atan(ax / ay);
+
+    servoAlpha = asinTerm - atanTerm;
+
+    Serial.print(String(servoAlpha) + ", ");
+
+    // servoAlpha = asin((pow(segmentLength, 2) - (pow(SERVOARM_ARM_LENGHT, 2) - pow(SERVOARM_LENGHT, 2))) / (sqrt(pow(_2a * (PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2]), 2) + pow((_2a * (cosBeta * (PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0])) + sinBeta * (PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1])), 2)))) - atan((_2a * (PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2])) / (_2a * ((cosBeta * (PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0])) + (sinBeta * (PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1])))));
   }
 }
 
@@ -162,11 +200,11 @@ void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3
 // Berechnet die Segment Länge für den i-ten Servo
 float CalculateSegmentLength(float rotationMatrix[3][3], int index){
   
-  // Erstellt platformJoint Vectoren nach den realen Abmessungen
+  // Erstellt platformJoint Vectoren nach den realen Abmessungen, z auf Null damit das von der Mitte der Platform ausgeht nicht von der Base
   float platformJoints[3] = {
     PLATFORM_JOINT_COORDINATES[index][0],
     PLATFORM_JOINT_COORDINATES[index][1],
-    PLATFORM_JOINT_COORDINATES[index][2]
+    0
   };
   
   // Multipliziert die Rotationsmatrix mit dem Verbingungs Punkt an der Platform
@@ -183,9 +221,9 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
 
   // Berechnet den T Vector der das Displacment von der der Mitte der Base zur der Mitte der Platform wieder gibt.
   float translationVector[3] = {
-    PLATFORM_TO_BASE_DISPLACMENT[0][0] + normalizedAxisDataArray[0], // Surge
-    PLATFORM_TO_BASE_DISPLACMENT[1][0] + normalizedAxisDataArray[1], // Sway
-    PLATFORM_TO_BASE_DISPLACMENT[2][0] + normalizedAxisDataArray[2]  // Heave
+    PLATFORM_TO_BASE_DISPLACMENT[0] + normalizedAxisDataArray[0], // Surge
+    PLATFORM_TO_BASE_DISPLACMENT[1] + normalizedAxisDataArray[1], // Sway
+    PLATFORM_TO_BASE_DISPLACMENT[2] + normalizedAxisDataArray[2]  // Heave
   };
 
   for (int i = 0; i < 3; i++) {
