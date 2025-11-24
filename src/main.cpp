@@ -160,7 +160,7 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
     float asinTerm = asin(num / r);
 
     // atan-Term
-    float atanTerm = atan(ax / ay);
+    float atanTerm = atan2(ax, ay);
 
     servoAlpha = asinTerm - atanTerm;
 
