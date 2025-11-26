@@ -688,7 +688,85 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
 }
 ```
 
-So jetzt funktioniert unsere Berechnung jetzt können wir beginnen unsere Motor ansteuerung und variablen für die Ansteuerung zu erstellen
+So jetzt funktioniert unsere Berechnung jetzt können wir beginnen unsere Motor ansteuerung und variablen für die Ansteuerung zu erstellen. Das sind alle unsere benötigten Variablen:
+
+```c
+const float RAD_BEFORE_IND_SENSOR = 5 * PI / 180;
+
+// 6 Motoren
+bool tryingToReachHome = false;
+
+const int motorCount = 6;                                   // Motoranzahl
+const int oddMotor[motorCount] = {0, 1, 0, 1, 0, 1};
+const int pwmPins[motorCount]       = {0, 1, 2, 3, 4, 5};   // GPA0–GPA5
+const int directionPins[motorCount] = {6, 7, 8, 9, 10, 11}; // GPA6–GPB3
+
+bool motorActive[motorCount] = {true, true, true, true, true, true};
+
+int motorSpeed = 15;                                        // Overall Motor Speed 15ms PWM Signal
+int motorDirection[motorCount];                             // 0 = rückwärts, 1 = vorwärts
+bool pwmState[motorCount] = {false, false, false, false, false, false};
+unsigned long lastToggle[motorCount] = {0, 0, 0, 0, 0, 0};
+
+// in Rad
+float motorCurrentPosition[motorCount];
+float motorTargetPosition[motorCount];
+
+```
+
+Das sind alle unsere Variablen die wir benötigen werden jetzt noch die Funktionen die wir brauchen:
+
+```c
+void GoToHomePosition();                   
+void CalculateMotorDirectionAndPosition();
+void CheckIfMotorIsAtPosition();
+void UpdatePWM();
+```
+
+Wir werden als erstes auf `void UpdatePWM()` eingehen, sie ist die ein Herzstück des ganzen. Sie sendet die PWM Signale zu den Motoren und steuert diese damit an. Das besondere ist sie nutzt keine delay Funktion sondern es wird alles über die Funktion `millis()` berechnet:
+
+```c
+void UpdatePWM() {
+  unsigned long now = millis();
+
+  for (int i = 0; i < motorCount; i++) {
+    if (!motorActive[i]) {
+      // Motor deaktiviert → ausschalten
+      mcp.digitalWrite(pwmPins[i], LOW);
+      continue;
+    }
+
+    if (now - lastToggle[i] >= motorSpeed) {
+      lastToggle[i] = now;
+      pwmState[i] = !pwmState[i];
+      mcp.digitalWrite(pwmPins[i], pwmState[i]);
+    }
+
+    // Richtung setzen
+    mcp.digitalWrite(directionPins[i], motorDirection[i]);
+  }
+}
+```
+
+Als nächstes werden wir die void `GoToHomePosition()` besprechen. Folgende Funktion steuert die Motoren einfach in die Richtung an die für sie zur Home Position führt. Diese ist einfach 90 Grad nach oben gerichtet diese wird durch Sensoren gemessen. Die Motoren bleiben ca 5 Grad vor der Position stehen durch die Sensoren das ist mit eingerechnet in der Funktion:
+
+```c
+void GoToHomePosition(){
+  tryingToReachHome = true;
+
+  for (int i = 0; i < motorCount; i++){
+    motorActive[i] = true;
+    
+    if(oddMotor[i]){
+      motorDirection[i] = 0;
+      motorCurrentPosition[i] = PI / 2 + RAD_BEFORE_IND_SENSOR;
+    } else {
+      motorDirection[i] = 1;
+      motorCurrentPosition[i] = PI / 2 - RAD_BEFORE_IND_SENSOR;
+    }
+  }
+}
+```
 
 ---
 

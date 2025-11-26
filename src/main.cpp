@@ -21,11 +21,14 @@ float calculatedRotationMatrix[3][3];
 // #### Motoren ####
 
 // 6 Motoren
+bool tryingToReachHome = false;
+
 const int motorCount = 6;
+
 const int pwmPins[motorCount]       = {0, 1, 2, 3, 4, 5};   // GPA0–GPA5
 const int directionPins[motorCount] = {6, 7, 8, 9, 10, 11}; // GPA6–GPB3
-
-bool motorActive[motorCount] = {true, true, true, true, true, true};
+const int oddMotor[motorCount] = {1, 0, 1, 0, 1, 0};
+bool motorActive[motorCount] = {false, false, false, false, false, false};
 
 int motorSpeed = 15;                                        // Overall Motor Speed 15ms
 int motorDirection[motorCount];                             // 0 = rückwärts, 1 = vorwärts
@@ -62,6 +65,8 @@ const float SERVO_BETA[6] = {30, 90, 150, 210, 270, 330};
 const float MOTOR_MAX_STEP_RESULTION = 500000.0f;
 const float MOTOR_STEPS_PER_SIGNAL = 1000.0f;
 const float RAD_PER_SIGNAL = (MOTOR_STEPS_PER_SIGNAL/MOTOR_MAX_STEP_RESULTION) * 2 * PI;
+
+const float RAD_BEFORE_IND_SENSOR = 5 * PI / 180;
 
 // Funktionen
 
@@ -316,6 +321,22 @@ void UpdatePWM() {
 
     // Richtung setzen
     mcp.digitalWrite(directionPins[i], motorDirection[i]);
+  }
+}
+
+void GoToHomePosition(){
+  tryingToReachHome = true;
+
+  for (int i = 0; i < motorCount; i++){
+    motorActive[i] = true;
+    
+    if(oddMotor[i]){
+      motorDirection[i] = 0;
+      motorCurrentPosition[i] = PI / 2 + RAD_BEFORE_IND_SENSOR;
+    } else {
+      motorDirection[i] = 1;
+      motorCurrentPosition[i] = PI / 2 - RAD_BEFORE_IND_SENSOR;
+    }
   }
 }
 
