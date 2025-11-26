@@ -641,7 +641,54 @@ $beta$: Das ist die der Winkel in dem der Servo zum Koordinaten System in Grad<b
 $B_i = [x_b, y_b, z_b]$: Das sind die Koordinaten worum sich der Servoarm dreht bzw. wo der Servo ist<br>
 $P_i = [x_p, y_p, z_p]$: Das sind die Koordinaten, des Punktes wo der Servo die Platform berührt<br>
 
+Jetzt werden wir das alles etwas gekürzt die ganze Formel in unseren Code übertragen:
 
+```c
+void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]){
+  CalculateRotationMatrix(normalizedAxisDataArray, calculatedRotationMatrix);
+
+  float servoAlpha = 0.0f;
+
+  for (int i = 0; i < 6; i++){
+    
+    // ######### Öfter verwendete in Berechnungen #########
+
+    float segmentLength = CalculateSegmentLength(calculatedRotationMatrix, i);
+    float cosBeta = cos(SERVO_BETA[i] * PI / 180);
+    float sinBeta = sin(SERVO_BETA[i] * PI / 180);
+    float _2a = (2 * SERVOARM_LENGHT);
+
+    float dx = PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0];
+    float dy = PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1];
+    float dz = PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2];
+
+    float ax = _2a * dz;
+    float ay = _2a * (cosBeta * dx + sinBeta * dy);  // oft benutzter Term
+
+    float r2 = ax*ax + ay*ay;      // ersetzt pow() + sqrt später
+    float r = sqrt(r2);
+
+    // ######### Berechnung #########
+
+    float num = segmentLength*segmentLength 
+            - (SERVOARM_ARM_LENGHT*SERVOARM_ARM_LENGHT 
+            - SERVOARM_LENGHT*SERVOARM_LENGHT);
+
+    float x = num / r;
+    x = constrain(x, -1.0, 1.0);
+    float asinTerm = asin(x);
+
+    // atan-Term
+    float atanTerm = atan2(ay, ax);
+
+    servoAlpha = asinTerm - atanTerm;
+
+    // servoAlpha = asin((pow(segmentLength, 2) - (pow(SERVOARM_ARM_LENGHT, 2) - pow(SERVOARM_LENGHT, 2))) / (sqrt(pow(_2a * (PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2]), 2) + pow((_2a * (cosBeta * (PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0])) + sinBeta * (PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1])), 2)))) - atan((_2a * (PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2])) / (_2a * ((cosBeta * (PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0])) + (sinBeta * (PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1])))));
+  }
+}
+```
+
+So jetzt funktioniert unsere Berechnung jetzt können wir beginnen unsere Motor ansteuerung und variablen für die Ansteuerung zu erstellen
 
 ---
 

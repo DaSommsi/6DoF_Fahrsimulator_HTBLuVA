@@ -1,14 +1,42 @@
 #include <Arduino.h>
 #include <math.h>
+#include <SPI.h>
+#include "Adafruit_MCP23X17.h"
 
-// Globale Variablen
+Adafruit_MCP23X17 mcp;
+
+// SPI Pins
+#define PIN_MISO 12
+#define PIN_MOSI 13
+#define PIN_SCK  14
+#define PIN_CS   15
+
+// ######## Globale Variablen ########
 
 float rawAxisDataArray[6];
 float normalizedAxisDataArray[6];
 
 float calculatedRotationMatrix[3][3];
 
-// Globale Konstanten (in cm)
+// #### Motoren ####
+
+// 6 Motoren
+const int motorCount = 6;
+const int pwmPins[motorCount]       = {0, 1, 2, 3, 4, 5};   // GPA0–GPA5
+const int directionPins[motorCount] = {6, 7, 8, 9, 10, 11}; // GPA6–GPB3
+
+bool motorActive[motorCount] = {true, true, true, true, true, true};
+
+int motorSpeed = 15;                                        // Overall Motor Speed 15ms
+int motorDirection[motorCount];                             // 0 = rückwärts, 1 = vorwärts
+bool pwmState[motorCount] = {false, false, false, false, false, false};
+unsigned long lastToggle[motorCount] = {0, 0, 0, 0, 0, 0};
+
+// in Rad
+float motorCurrentPosition[motorCount];
+float motorTargetPosition[motorCount];
+
+// ######## Globale Konstanten (in cm) ########
 
 constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{15.0, -55.5, 62.5}, // Rechts unten Point 1
                                                     {54.5, 14.5, 62.5}, // Rechts mitte  Point 2
@@ -17,7 +45,7 @@ constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{15.0, -55.5, 62.5}, // Rech
                                                     {-54.5, 14.5, 62.5}, // Links mitte  Point 5
                                                     {-15.0, -55.5, 62.5}}; // Links unten Point 6
 
-constexpr float PLATFORM_TO_BASE_DISPLACMENT[3] = {{0.0}, {0.0}, {62.5}};
+constexpr float PLATFORM_TO_BASE_DISPLACMENT[3] = {0.0, 0.0, 62.5};
 
 constexpr float BASE_SERVO_COORDINATES[6][3] = {{23.0, -38.7, 0}, // Rechts unten Servo 1
                                                 {45.0, 0, 0}, // Rechts mitte Servo 2
@@ -29,7 +57,11 @@ constexpr float BASE_SERVO_COORDINATES[6][3] = {{23.0, -38.7, 0}, // Rechts unte
 const float SERVOARM_ARM_LENGHT = 72.0f;
 const float SERVOARM_LENGHT = 37.5f;
 
-const float SERVO_BETA[6] = {30, 0, 150, 150, 0, 30};
+const float SERVO_BETA[6] = {30, 90, 150, 210, 270, 330};
+
+const float MOTOR_MAX_STEP_RESULTION = 500000.0f;
+const float MOTOR_STEPS_PER_SIGNAL = 1000.0f;
+const float RAD_PER_SIGNAL = (MOTOR_STEPS_PER_SIGNAL/MOTOR_MAX_STEP_RESULTION) * 2 * PI;
 
 // Funktionen
 
@@ -40,13 +72,37 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
 void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]);
 float CalculateSegmentLength(float rotationMatrix[3][3], int index);
 
+void GoToHomePosition();//
+void CalculateMotorDirectionAndPosition();//
+void CheckIfMotorIsAtPosition();//
+void UpdatePWM();
+
 void setup() {
   Serial.begin(115200);
+  while (!Serial) delay(10);
+
+  SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_CS);
+
+  if (!mcp.begin_SPI(PIN_CS)) {
+    Serial.println("Fehler: MCP23S17 nicht gefunden!");
+    while (1);
+  }
+
+  Serial.println("MCP23S17 verbunden!");
+
+  for (int i = 0; i < motorCount; i++) {
+    mcp.pinMode(pwmPins[i], OUTPUT);
+    mcp.pinMode(directionPins[i], OUTPUT);
+    mcp.digitalWrite(pwmPins[i], LOW);
+    mcp.digitalWrite(directionPins[i], LOW);
+  }
+  
 }
 
 void loop() {
   if(ProcessIncomingDataFromSimTools(rawAxisDataArray, normalizedAxisDataArray)){
     CalculateServoAlpha(normalizedAxisDataArray, calculatedRotationMatrix);
+    CalculateMotorDirectionAndPosition();
   }
 }
 
@@ -157,12 +213,16 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
             - (SERVOARM_ARM_LENGHT*SERVOARM_ARM_LENGHT 
             - SERVOARM_LENGHT*SERVOARM_LENGHT);
 
-    float asinTerm = asin(num / r);
+    float x = num / r;
+    x = constrain(x, -1.0, 1.0);
+    float asinTerm = asin(x);
 
     // atan-Term
-    float atanTerm = atan2(ax, ay);
+    float atanTerm = atan2(ay, ax);
 
     servoAlpha = asinTerm - atanTerm;
+
+    motorTargetPosition[i] = servoAlpha;
 
     Serial.print(String(servoAlpha) + ", ");
 
@@ -208,7 +268,7 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
   };
   
   // Multipliziert die Rotationsmatrix mit dem Verbingungs Punkt an der Platform
-  float tempPoint[3] = {{0},{0},{0}};
+  float tempPoint[3] = {0,0,0};
 
   for(int i = 0; i<3; i++){
     for(int j = 0; j<3; j++){
@@ -217,7 +277,7 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
   }
 
   // Berechnung von dem Vector segmentLenght
-  float segmentLength[3] = {{0},{0},{0}};
+  float segmentLength[3] = {0,0,0};
 
   // Berechnet den T Vector der das Displacment von der der Mitte der Base zur der Mitte der Platform wieder gibt.
   float translationVector[3] = {
@@ -236,4 +296,29 @@ float CalculateSegmentLength(float rotationMatrix[3][3], int index){
     pow(segmentLength[1], 2) +
     pow(segmentLength[2], 2)
   );
+}
+
+void UpdatePWM() {
+  unsigned long now = millis();
+
+  for (int i = 0; i < motorCount; i++) {
+    if (!motorActive[i]) {
+      // Motor deaktiviert → ausschalten
+      mcp.digitalWrite(pwmPins[i], LOW);
+      continue;
+    }
+
+    if (now - lastToggle[i] >= motorSpeed) {
+      lastToggle[i] = now;
+      pwmState[i] = !pwmState[i];
+      mcp.digitalWrite(pwmPins[i], pwmState[i]);
+    }
+
+    // Richtung setzen
+    mcp.digitalWrite(directionPins[i], motorDirection[i]);
+  }
+}
+
+void CalculateMotorDirectionAndPosition(){
+  
 }
