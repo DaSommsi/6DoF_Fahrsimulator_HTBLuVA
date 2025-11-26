@@ -27,6 +27,8 @@ const int motorCount = 6;
 
 const int pwmPins[motorCount]       = {0, 1, 2, 3, 4, 5};   // GPA0–GPA5
 const int directionPins[motorCount] = {6, 7, 8, 9, 10, 11}; // GPA6–GPB3
+const int inductionSensorPins[motorCount] = {33, 32, 35, 34, 39, 36};
+
 const int oddMotor[motorCount] = {1, 0, 1, 0, 1, 0};
 bool motorActive[motorCount] = {false, false, false, false, false, false};
 
@@ -65,8 +67,19 @@ const float SERVO_BETA[6] = {30, 90, 150, 210, 270, 330};
 const float MOTOR_MAX_STEP_RESULTION = 500000.0f;
 const float MOTOR_STEPS_PER_SIGNAL = 1000.0f;
 const float RAD_PER_SIGNAL = (MOTOR_STEPS_PER_SIGNAL/MOTOR_MAX_STEP_RESULTION) * 2 * PI;
+const float MOTOR_RAD_OFFSET_TOLERANCE = 1 * PI / 180;
 
 const float RAD_BEFORE_IND_SENSOR = 5 * PI / 180;
+
+// Anderes
+
+enum SystemState {
+  STATE_GOTO_HOME,
+  STATE_WAIT_FOR_HOME,
+  STATE_RUNNING
+};
+
+SystemState systemState = STATE_GOTO_HOME;
 
 // Funktionen
 
@@ -77,9 +90,10 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
 void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]);
 float CalculateSegmentLength(float rotationMatrix[3][3], int index);
 
-void GoToHomePosition();//
-void CalculateMotorDirectionAndPosition();//
-void CheckIfMotorIsAtPosition();//
+void GoToHomePosition();
+bool CheckIfAtHome();
+void CalculateMotorDirectionAndPosition();
+bool CheckIfMotorIsAtPosition(int index);
 void UpdatePWM();
 
 void setup() {
@@ -101,14 +115,37 @@ void setup() {
     mcp.digitalWrite(pwmPins[i], LOW);
     mcp.digitalWrite(directionPins[i], LOW);
   }
+
+  for (int i = 0; i < motorCount; i++) {
+    pinMode(inductionSensorPins[i], INPUT_PULLUP); 
+  }
   
 }
 
 void loop() {
-  if(ProcessIncomingDataFromSimTools(rawAxisDataArray, normalizedAxisDataArray)){
-    CalculateServoAlpha(normalizedAxisDataArray, calculatedRotationMatrix);
-    CalculateMotorDirectionAndPosition();
+
+  switch(systemState) {
+
+    case STATE_GOTO_HOME:
+      GoToHomePosition();       // nur einmal gesendet
+      systemState = STATE_WAIT_FOR_HOME;
+      break;
+
+    case STATE_WAIT_FOR_HOME:
+      if(CheckIfAtHome()) {     // wartet bis true
+        systemState = STATE_RUNNING;
+      }
+      break;
+
+    case STATE_RUNNING:
+      if(ProcessIncomingDataFromSimTools(rawAxisDataArray, normalizedAxisDataArray)) {
+        CalculateServoAlpha(normalizedAxisDataArray, calculatedRotationMatrix);
+        CalculateMotorDirectionAndPosition();
+      }
+      break;
   }
+
+  UpdatePWM();   // PWM muss natürlich immer weiterlaufen
 }
 
 // Funktionen
@@ -321,6 +358,10 @@ void UpdatePWM() {
 
     // Richtung setzen
     mcp.digitalWrite(directionPins[i], motorDirection[i]);
+    
+    // Rad hinzufügen zu aktueller Position
+    motorCurrentPosition[i] += motorDirection[i] ? (-1) : (1) * RAD_PER_SIGNAL;
+    CheckIfMotorIsAtPosition(i);
   }
 }
 
@@ -340,6 +381,50 @@ void GoToHomePosition(){
   }
 }
 
-void CalculateMotorDirectionAndPosition(){
-  
+bool CheckIfAtHome() {
+  bool allAtHome = true;
+
+  for(int i = 0; i < motorCount; i++) {
+    if(!motorActive[i]) continue;
+
+    // Beispiel: Wenn Induktivsensor ausgelöst hat → HOME erreicht
+    if(!digitalRead(inductionSensorPins[i])) {
+      allAtHome = false;      // Noch nicht am Home-Punkt
+    } else {
+      motorActive[i] = false; // Motor stoppen
+    }
+  }
+
+  return allAtHome;
+}
+
+void CalculateMotorDirectionAndPosition() {
+  for (int i = 0; i < motorCount; i++) {
+
+    float target = motorTargetPosition[i];
+
+    // Nicht-odd Motoren drehen von der negativen X-Achse aus
+    if (!oddMotor[i]) {
+      target = PI - target;
+    }
+
+    // Delta berechnen — je nach Motor-Typ dreht er „umgekehrt“
+    float delta; 
+    if(oddMotor[i]){
+      delta = motorCurrentPosition[i] - target; 
+      
+      if(delta<0){ 
+        motorDirection[i] = 1; 
+      }else{ 
+        motorDirection[i] = 0; } 
+    }else{ 
+      delta = target - motorCurrentPosition[i]; 
+        
+      if(delta<0){ 
+        motorDirection[i] = 0; 
+      }else{ 
+        motorDirection[i] = 1; 
+      }
+    }
+  }
 }
