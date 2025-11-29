@@ -67,7 +67,7 @@ Dabei dienen die Zeichen `>,<` als Trenner zwischen den einzelnen Achsdaten. Das
 
 Hier ist der aktuelle Code, der die Datenübertragung und -verarbeitung auf dem ESP32 umsetzt:
 
-```c
+```c++
 void processIncomingByte (const byte inByte) {
     static char input_line [MAX_SERIAL_INPUT];
     static unsigned int input_pos = 0;
@@ -93,7 +93,7 @@ void processIncomingByte (const byte inByte) {
 
 Das ist der Code der für die Entgegen nahme des Datenpakets das von SimTools gesendet wird. Hier ist noch die `process_data()` Funktion.
 
-```c
+```c++
 // parses the data packet from the pc = > x,y,z,Ry ,Rx ,RZ
 void process_data ( char * data ){
 
@@ -155,7 +155,7 @@ Hier haben wir einen effizienteren Code um die Daten zu verarbeiten. Wir haben d
 
 Als Beispiel wenn dieser String `<120>,<25>,<255>,<20>,<16>,<189>X` von SimTools über die Serielle Schnitstelle geschickt wird, dann ist der Buffer des ESP32 nicht mehr leer und mit `Serial.readStringUntil('X')` bekommen wir dann `<120>,<25>,<255>,<20>,<16>,<189>`. Jetzt müssen wir diesen String nur noch in einzelne Werte aufteilen und diese dann in die entsprechenden Variablen speichern.
 
-```c
+```c++
 // Die Funktion extrahiert die Zahlenwerte die in dem Daten String sind und verpackt sie uns in einen Array den wir dann nutzen können
 void ConvertIncomingDataStringToIntArray(int axisData[], const String& inputData){
   int axisIndex = 0;                // Index für das Array
@@ -203,7 +203,7 @@ Hier ist nochmal visualisiert welcher Wert in welchem Array-Position landet.
 
 Jetzt fehlt nur noch was wir noch nicht im Code umgestetzt haben und das ist dieser Teil:
 
-```c
+```c++
 float mapfloat ( double x , double in_min , double in_max , double out_min ,double out_max ){
   return ( float ) ( x - in_min ) * ( out_max - out_min ) / ( float ) ( in_max -in_min ) + out_min ; 
 }
@@ -211,7 +211,7 @@ float mapfloat ( double x , double in_min , double in_max , double out_min ,doub
 
 Und die Umsaklierung der Werte in ihre entsprechenden Größen zubekommen werde ich die Funktion `mapFloat()` umschreiben damit sie besser lesbar ist:
 
-```c
+```c++
 // Diese Funktion skaliert einen Wert von einem Eingabebereich in einen Zielbereich.
 float mapFloat(double inputValue, double inputMin, double inputMax, double outputMin, double outputMax) {
     
@@ -234,7 +234,7 @@ Das ist die fertige `mapFloat()` Funktion. Um ein bessers Verständnis zuerlange
 Beispiel: `inputValue = 100`, `inputMin = 0`, `inputMax = 200`, `outputMin = 0`, `outputMax = 100`
 
 Wir werden mit dem ersten Teil anfangen:
-```c
+```c++
 double normalized = (inputValue - inputMin) / (inputMax - inputMin);
 ```
 Das sieht dann mit unseren Werten so aus:
@@ -245,7 +245,7 @@ $$
 
 Die `0.5` kann man auch als `50%` sehen. Das bedeutet, dass der Eingabewert 100 im Eingabebereich 0-200 50% des Bereichs ausmacht. Jetzt skalieren wir den Wert auf den Ausgabebereich:
 
-```c
+```c++
 double scaled = normalized * (outputMax - outputMin);
 ```
 
@@ -271,7 +271,7 @@ Im Original Code wird die Funktion `mapFloat()` Funktion schon verwendet und sie
 
 Wir man auch erkennen kann sind bei Roll, Pitch und Yaw die Ausgabewerte in Radiant umgerechnet. Das ist ist wichtig für die Berechnungne später aber jetzt werden wir die Umrechnung in den Code implemntieren:
 
-```c
+```c++
 for(int i = 0; i<6; i++){
       if(i == 0 || i == 1){
         normalizedDataArray[i] = mapFloat(rawDataArray[i], 0, 4096, -8, 8);               // Surge und Sway
@@ -289,7 +289,7 @@ Das ist die for-Schleife die die rohen Daten in ihren neuen Größen umskalieren
 
 Beim ersten Durchsehen des Codes für das Diplomprojekt wurde mir schnell klar, dass die Berechnung der Servorotationen zur gezielten Bewegung der Plattform äußerst komplex ist. Hier ist der Code zu Referenz:
 
-```c
+```c++
 float getAlpha(int i, volatile float arr[]) {
     // For Platform Coord algorithm
     float platformPDx[6] = {0};
@@ -470,7 +470,7 @@ Jetzt werden wir dazu eine Funktion schreiben die uns die Rotation Matrix aus de
 
 Das hier ist der Code für das ganze:
 
-```c
+```c++
 void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]) {
   float psi = normalizedDataArray[5];     // Roll
   float theta = normalizedDataArray[4];   // Pitch
@@ -515,7 +515,7 @@ $$
 Wir werden Anfangen in dem wir die Konstanten Werte in Arrays speichern werden um immer auf sie zuzugreifen können.
 Wir fangen mit den $p_i$ an sie sind alle von der Mitte der Platform aus zu den Punkt. Wir fangen auf der linken unteren Seite an und gehen gegen den Uhrzeigersinn. Alle Maße sind in cm.
 
-```c
+```c++
 const float PLATFORM_JOINT_COORDINATES[6][3] = {{-15.0, -55.5, 0}, // Links unten
                                                 {-54.5, 14.5, 0}, // Links mitte
                                                 {-39.5, 39.5, 0}, // Links oben
@@ -526,7 +526,7 @@ const float PLATFORM_JOINT_COORDINATES[6][3] = {{-15.0, -55.5, 0}, // Links unte
 
 Wir machen weiter mit $T$. Dadurch das ich aktuell nicht die genauen Maße habe, werde ich einen Wert schätzen und nehme `62,5`.
 
-```c
+```c++
 const float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
                                                   {0.0},
                                                   {62.5}};
@@ -534,7 +534,7 @@ const float PLATFORM_TO_BASE_DISPLACMENT[3][1] = {{0.0},
 
 Jetzt müssen wir noch die konstante $b_i$ erstellen. **Wichtig** ist das $b_i$ nicht oben aufliegt auf der Basis sondern genau auf der Höhe der Servos liegt deswegen muss später das bei $h_o$ berrücksichtigt werden.
 
-```c
+```c++
 const float BASE_SERVO_COORDINATES[6][3] = {{-23, -38.7, 0}, // Links unten
                                             {-45, 0, 0}, // Links mitte
                                             {-23, 38.7, 0}, // Links oben
@@ -545,7 +545,7 @@ const float BASE_SERVO_COORDINATES[6][3] = {{-23, -38.7, 0}, // Links unten
 
 Jetzt werden wir die Funktion erstellen um $l_i$ zu berechnen. Wir werden die Funktion `CalculateSegmentLength` nennen:
 
-```c
+```c++
 // Berechnet die Rotationmatrix aus den gegebenen Werten
 void CalculateRotationMatrix(float normalizedDataArray[], float rotationMatrix[3][3]) {
   float psi = normalizedDataArray[5];     // Roll
@@ -643,7 +643,7 @@ $P_i = [x_p, y_p, z_p]$: Das sind die Koordinaten, des Punktes wo der Servo die 
 
 Jetzt werden wir das alles etwas gekürzt die ganze Formel in unseren Code übertragen:
 
-```c
+```c++
 void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]){
   CalculateRotationMatrix(normalizedAxisDataArray, calculatedRotationMatrix);
 
@@ -690,20 +690,24 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
 
 So jetzt funktioniert unsere Berechnung jetzt können wir beginnen unsere Motor ansteuerung und variablen für die Ansteuerung zu erstellen. Das sind alle unsere benötigten Variablen:
 
-```c
+```c++
 const float RAD_BEFORE_IND_SENSOR = 5 * PI / 180;
+
+// #### Motoren ####
 
 // 6 Motoren
 bool tryingToReachHome = false;
 
-const int motorCount = 6;                                   // Motoranzahl
-const int oddMotor[motorCount] = {0, 1, 0, 1, 0, 1};
+const int motorCount = 6;
+
 const int pwmPins[motorCount]       = {0, 1, 2, 3, 4, 5};   // GPA0–GPA5
 const int directionPins[motorCount] = {6, 7, 8, 9, 10, 11}; // GPA6–GPB3
+const int inductionSensorPins[motorCount] = {33, 32, 35, 34, 39, 36};
 
+const int oddMotor[motorCount] = {1, 0, 1, 0, 1, 0};
 bool motorActive[motorCount] = {true, true, true, true, true, true};
 
-int motorSpeed = 15;                                        // Overall Motor Speed 15ms PWM Signal
+float motorSpeed = 15;                                        // Overall Motor Speed 15ms
 int motorDirection[motorCount];                             // 0 = rückwärts, 1 = vorwärts
 bool pwmState[motorCount] = {false, false, false, false, false, false};
 unsigned long lastToggle[motorCount] = {0, 0, 0, 0, 0, 0};
@@ -716,16 +720,17 @@ float motorTargetPosition[motorCount];
 
 Das sind alle unsere Variablen die wir benötigen werden jetzt noch die Funktionen die wir brauchen:
 
-```c
-void GoToHomePosition();                   
+```c++
+void GoToHomePosition();
+bool CheckIfAtHome();
 void CalculateMotorDirectionAndPosition();
-void CheckIfMotorIsAtPosition();
+bool CheckIfMotorIsAtPosition(int index);
 void UpdatePWM();
 ```
 
 Wir werden als erstes auf `void UpdatePWM()` eingehen, sie ist die ein Herzstück des ganzen. Sie sendet die PWM Signale zu den Motoren und steuert diese damit an. Das besondere ist sie nutzt keine delay Funktion sondern es wird alles über die Funktion `millis()` berechnet:
 
-```c
+```c++
 void UpdatePWM() {
   unsigned long now = millis();
 
@@ -744,13 +749,24 @@ void UpdatePWM() {
 
     // Richtung setzen
     mcp.digitalWrite(directionPins[i], motorDirection[i]);
+
+    // Rad hinzufügen zu aktueller Position
+    if(systemState == STATE_RUNNING){
+      // Serial.println("Before Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+      motorCurrentPosition[i] += motorDirection[i] ? -RAD_PER_SIGNAL : RAD_PER_SIGNAL;
+      // Serial.println("After Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+      motorActive[i] = !CheckIfMotorIsAtPosition(i);
+      // Serial.println("Set Motor Line 375: " + String(motorActive[i]) + String(i));
+    }
   }
 }
 ```
 
 Als nächstes werden wir die void `GoToHomePosition()` besprechen. Folgende Funktion steuert die Motoren einfach in die Richtung an die für sie zur Home Position führt. Diese ist einfach 90 Grad nach oben gerichtet diese wird durch Sensoren gemessen. Die Motoren bleiben ca 5 Grad vor der Position stehen durch die Sensoren das ist mit eingerechnet in der Funktion:
 
-```c
+!!WICHTIG!! Es ist so das 1 für MotorDirection im Uhrzeigersinn ist
+
+```c++
 void GoToHomePosition(){
   tryingToReachHome = true;
 
@@ -758,13 +774,145 @@ void GoToHomePosition(){
     motorActive[i] = true;
     
     if(oddMotor[i]){
-      motorDirection[i] = 0;
+      motorDirection[i] = 1;
       motorCurrentPosition[i] = PI / 2 + RAD_BEFORE_IND_SENSOR;
     } else {
-      motorDirection[i] = 1;
+      motorDirection[i] = 0;
       motorCurrentPosition[i] = PI / 2 - RAD_BEFORE_IND_SENSOR;
     }
   }
+}
+```
+
+```c++
+bool CheckIfAtHome() {
+  bool allAtHome = true;
+
+  for(int i = 0; i < motorCount; i++) {
+    if(!motorActive[i]) continue;
+
+    // Beispiel: Wenn Induktivsensor ausgelöst hat → HOME erreicht
+    if(digitalRead(inductionSensorPins[i])) {
+      allAtHome = false;      // Noch nicht am Home-Punkt
+    } else {
+      motorActive[i] = false; // Motor stoppen
+    }
+  }
+
+  return allAtHome;
+}
+```
+
+Jedes brauchen wir noch eine Funktion die uns die Richtung von jedem einzelnen Motor berechnet, damit dieses ihr Ziel erreichen können. Dies wird mit der Funktion `void CalculateMotorDirectionAndPosition()` erzielt:
+
+```c++
+void CalculateMotorDirectionAndPosition() {
+  for (int i = 0; i < motorCount; i++) {
+
+    float target = motorTargetPosition[i];
+
+    // Nicht-odd Motoren drehen von der negativen X-Achse aus
+    if (!oddMotor[i]) {
+      target = PI - target;
+      motorTargetPosition[i] = target;
+    }
+    // Serial.println("Motor" + String(i) + " Target:" + String(target) + " Current" + String(motorCurrentPosition[i]));
+    // Delta berechnen — je nach Motor-Typ dreht er „umgekehrt“
+    float delta;
+    if(oddMotor[i]){
+      delta = motorCurrentPosition[i] - target; 
+      
+      if(delta<0){ 
+        motorDirection[i] = 0; 
+      }else{ 
+        motorDirection[i] = 1; } 
+    }else{ 
+      delta = target - motorCurrentPosition[i]; 
+        
+      if(delta<0){ 
+        motorDirection[i] = 1; 
+      }else{ 
+        motorDirection[i] = 0; 
+      }
+    }
+  }
+}
+```
+
+Zuletzt müssen wir natürlich Prüfen ob unsere Motor die Ziel Position erreicht hat. Dies werden wir mit einem 1 Grad Toleranz angehen weil unsere Motor Schrittgröße 0,72 Grad beträgt lassen wir ihm hier noch etwas Spiel:
+
+```c
+bool CheckIfMotorIsAtPosition(int index) {
+    return fabs(motorCurrentPosition[index] - motorTargetPosition[index]) <= MOTOR_RAD_OFFSET_TOLERANCE;
+}
+```
+
+Jetzt müssen wir natürlich noch unsere `void loop()` sowie `void setup()` neu ausarbeiten. Wir werden dafür einen enum erstellen um die System States wiederzuspiegeln. Später müssen wir das erweitern um E-Stops ein zubauen, sowie Start-Stop Taster:
+
+```c++
+enum SystemState {
+  STATE_GOTO_HOME,
+  STATE_WAIT_FOR_HOME,
+  STATE_RUNNING
+};
+
+SystemState systemState = STATE_GOTO_HOME;
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial) delay(10);
+
+  SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_CS);
+
+  if (!mcp.begin_SPI(PIN_CS)) {
+    Serial.println("Fehler: MCP23S17 nicht gefunden!");
+    while (1);
+  }
+
+  Serial.println("MCP23S17 verbunden!");
+
+  for (int i = 0; i < motorCount; i++) {
+    mcp.pinMode(pwmPins[i], OUTPUT);
+    mcp.pinMode(directionPins[i], OUTPUT);
+    mcp.digitalWrite(pwmPins[i], LOW);
+    mcp.digitalWrite(directionPins[i], LOW);
+  }
+
+  for (int i = 0; i < motorCount; i++) {
+    pinMode(inductionSensorPins[i], INPUT); 
+  }
+  
+}
+
+void loop() {
+
+  switch(systemState) {
+
+    case STATE_GOTO_HOME:
+      GoToHomePosition();       // nur einmal gesendet
+      systemState = STATE_WAIT_FOR_HOME;
+      break;
+
+    case STATE_WAIT_FOR_HOME:
+      if(CheckIfAtHome()) {     // wartet bis true 
+        systemState = STATE_RUNNING;
+        // Serial.println("##############Is home normal State is rechead!####################");
+      }
+      break;
+
+    case STATE_RUNNING:
+      if(ProcessIncomingDataFromSimTools(rawAxisDataArray, normalizedAxisDataArray)) {
+        CalculateServoAlpha(normalizedAxisDataArray, calculatedRotationMatrix);
+        CalculateMotorDirectionAndPosition();
+        for (int i = 0; i < motorCount; i++){
+          motorActive[i] = !CheckIfMotorIsAtPosition(i);
+          // Serial.println("Motor state fuer" + String(i) + String(motorActive[i]));
+        }
+      }
+      break;
+  }
+
+  UpdatePWM();   // PWM muss natürlich immer weiterlaufen
 }
 ```
 
@@ -793,12 +941,38 @@ DIR (Direction): Gibt die Drehrichtung des Motors an und ist entweder auf HIGH o
 PULS: Steuert die Anzahl der Schritte, die der Motor bei jedem Impuls dreht. Die Auflösung dieses Impulses hängt von zwei Parametern des Drivers ab: Pn098 (Molekül) und Pn102 (Nenner).
 
 Berechnung der Auflösung
-Die Auflösung des Motors wird durch das Verhältnis von 360° (Vollumdrehung) zur Anzahl der Pulses pro Umdrehung bestimmt. Wenn wir den Pn098 auf 1000 und den Pn102 auf 1 setzen, bedeutet das, dass der Motor 1000 Puls pro Umdrehung benötigt.
+Die Auflösung des Motors wird durch das Verhältnis von 360° (Vollumdrehung) zur Anzahl der Pulses pro Umdrehung bestimmt. Wenn wir den Pn098 auf 1000 und den Pn102 auf 1 setzen, bedeutet das, dass der Motor 1000 Schritte pro Pules geht und er braucht für die Gesamten 360° genau `500.000 Schritte`.
 
 Die mathematische Berechnung lautet:
 
+!! Falsch !!
 $$
 \frac{360^\circ}{\frac{Pn098}{Pn102}} = \frac{360^\circ}{\frac{1000 Puls}{1}} = \frac{360^\circ}{1000 Puls} = 0,36 \, \text{Grad pro Puls}
 $$
 
 Das bedeutet, dass bei jedem Puls, den wir an den Motor senden, dieser sich um 0,36 Grad in die vorgegebene Richtung dreht.
+
+## Verstehen von SimTools
+
+Wenn wir das erste mal SimTools V3 installieren brauchen wir alle benötigten Plugins diese währen:
+
+- Das gewünschte Spiel
+- Serial Output Plugin
+
+Dies wird über den Plugin Manager rechts unten erreicht. Dort werden wir, für Testzwecke das LFS - Life for Speed Plugin donwloaden so wie das Serialle Interface. 
+
+Jetzt werden wir oben auf den Home Knopf dürcken und auf Interface Setup gehen. Dort stehen uns 6 verschiedene Interfaces zur Verfügung. Wir werden jetzt bei Selected Plugins `Serial` auswählen und folgende Einstellungen Treffen:
+
+- ComPort: Das ist der Port an dem unsere ESP32 hängt in meinem Falle ist dies der COM4. (Wichtig zu beachten SimTools erkennt den Port nur wenn dort der ESP angeschlossen ist)
+- BitsPerSec: Das ist die Baudrate die man auch schon im Code des ESP32 festlegt für die Serielle Schnittstelle.
+- DataBits: Ist die Bitgröße, der einzelnen Zeichen die gesendet werden hier ist 8 Bit Standard.
+- Parity: None
+- Stop Bits: Hier ist das Letzte Zeichen bzw Bit was gesendet wird das werden wir später als ein `X` definieren.
+- Output - Bit Range: Das ist die Range in der die SimTools achsen übertragen werden. Das bedeutet wenn die Achse von -100 bis 100 geht und die Bit Range 12 Bit (4096) ist. Dann wird dies zu den 4096 skaliert also -100 ist 0 und 100 ist 4096, damit ist 0 gleich 2047.
+- Startup: Das lassen wir frei
+- Interface - Output: Hier werden unsere Achsen ausgegeben. Wir müssen hier folgendes reinschreiben `<Axis1a>`, das ist die erste Achse. Hier wird dann die Zahl eingefügt die von SimTools kommt das bedeutet wir müssen das ganze noch seperate Trennen das machen wir wie folgt: `<Axis1a>,<Axis2a>,<Axis3a>,<Axis4a>,<Axis5a>,<Axis6a>X`. Und am Ende haben wir noch unser X als Stopbit
+- Shutdown - Output: Lassen wir frei
+
+Jetzt noch speichern nicht vergessen und dann sind wir hiermit fertig.
+
+Nach dem wir das alles Eingestellt haben können wir jetzt mit einem Doppel Klich auf unser Spiel in SimTools das Spiel starten und die Serielle Schnittstelle gibt uns die Achsen aus.
