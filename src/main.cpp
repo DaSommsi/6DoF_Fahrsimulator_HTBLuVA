@@ -5,6 +5,12 @@
 
 Adafruit_MCP23X17 mcp;
 
+// Wichtige-INFOS
+/*
+Aktuell vohrer ESP einstecken ohne Laptop dann Powern und dann erst Serielle Schnitstelle aktivieren. 
+
+*/
+
 // SPI Pins
 #define PIN_MISO 12
 #define PIN_MOSI 13
@@ -30,9 +36,9 @@ const int directionPins[motorCount] = {6, 7, 8, 9, 10, 11}; // GPA6–GPB3
 const int inductionSensorPins[motorCount] = {33, 32, 35, 34, 39, 36};
 
 const int oddMotor[motorCount] = {1, 0, 1, 0, 1, 0};
-bool motorActive[motorCount] = {false, false, false, false, false, false};
+bool motorActive[motorCount] = {true, true, true, true, true, true};
 
-int motorSpeed = 15;                                        // Overall Motor Speed 15ms
+float motorSpeed = 15;                                        // Overall Motor Speed 15ms
 int motorDirection[motorCount];                             // 0 = rückwärts, 1 = vorwärts
 bool pwmState[motorCount] = {false, false, false, false, false, false};
 unsigned long lastToggle[motorCount] = {0, 0, 0, 0, 0, 0};
@@ -117,7 +123,7 @@ void setup() {
   }
 
   for (int i = 0; i < motorCount; i++) {
-    pinMode(inductionSensorPins[i], INPUT_PULLUP); 
+    pinMode(inductionSensorPins[i], INPUT); 
   }
   
 }
@@ -132,8 +138,9 @@ void loop() {
       break;
 
     case STATE_WAIT_FOR_HOME:
-      if(CheckIfAtHome()) {     // wartet bis true
+      if(CheckIfAtHome()) {     // wartet bis true 
         systemState = STATE_RUNNING;
+        // Serial.println("##############Is home normal State is rechead!####################");
       }
       break;
 
@@ -141,6 +148,10 @@ void loop() {
       if(ProcessIncomingDataFromSimTools(rawAxisDataArray, normalizedAxisDataArray)) {
         CalculateServoAlpha(normalizedAxisDataArray, calculatedRotationMatrix);
         CalculateMotorDirectionAndPosition();
+        for (int i = 0; i < motorCount; i++){
+          motorActive[i] = !CheckIfMotorIsAtPosition(i);
+          // Serial.println("Motor state fuer" + String(i) + String(motorActive[i]));
+        }
       }
       break;
   }
@@ -150,14 +161,14 @@ void loop() {
 
 // Funktionen
 
-// <1500>,<2500>,<50>,<60>,<842>,<4000>X <2048>,<2048>,<2048>,<2048>,<2048>,<4096>X
+// <1500>,<2500>,<50>,<60>,<842>,<4000>X <2048>,<2048>,<2048>,<2048>,<2048>,<2048>X 
 
 // Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie, gibt True zurück wenn etwas empfangen wurde
 bool ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]){
   // Überprüft ob Daten im Buffer sind
   if (Serial.available() > 0){
     String incomingData = Serial.readStringUntil('\n');     // Daten aus Buffer holen
-    Serial.println(incomingData);                           // Daten ausgeben um zum Testen
+    // Serial.println(incomingData);                           // Daten ausgeben um zum Testen
 
     // Daten von String zu den einzelnen Werten umwandeln
     ConvertIncomingDataStringToIntArray(rawDataArray, incomingData);
@@ -266,7 +277,7 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
 
     motorTargetPosition[i] = servoAlpha;
 
-    Serial.print(String(servoAlpha) + ", ");
+    // Serial.print(String(servoAlpha) + ", ");
 
     // servoAlpha = asin((pow(segmentLength, 2) - (pow(SERVOARM_ARM_LENGHT, 2) - pow(SERVOARM_LENGHT, 2))) / (sqrt(pow(_2a * (PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2]), 2) + pow((_2a * (cosBeta * (PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0])) + sinBeta * (PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1])), 2)))) - atan((_2a * (PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2])) / (_2a * ((cosBeta * (PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0])) + (sinBeta * (PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1])))));
   }
@@ -358,10 +369,15 @@ void UpdatePWM() {
 
     // Richtung setzen
     mcp.digitalWrite(directionPins[i], motorDirection[i]);
-    
+
     // Rad hinzufügen zu aktueller Position
-    motorCurrentPosition[i] += motorDirection[i] ? (-1) : (1) * RAD_PER_SIGNAL;
-    CheckIfMotorIsAtPosition(i);
+    if(systemState == STATE_RUNNING){
+      // Serial.println("Before Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+      motorCurrentPosition[i] += motorDirection[i] ? -RAD_PER_SIGNAL : RAD_PER_SIGNAL;
+      // Serial.println("After Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+      motorActive[i] = !CheckIfMotorIsAtPosition(i);
+      // Serial.println("Set Motor Line 375: " + String(motorActive[i]) + String(i));
+    }
   }
 }
 
@@ -372,10 +388,10 @@ void GoToHomePosition(){
     motorActive[i] = true;
     
     if(oddMotor[i]){
-      motorDirection[i] = 0;
+      motorDirection[i] = 1;
       motorCurrentPosition[i] = PI / 2 + RAD_BEFORE_IND_SENSOR;
     } else {
-      motorDirection[i] = 1;
+      motorDirection[i] = 0;
       motorCurrentPosition[i] = PI / 2 - RAD_BEFORE_IND_SENSOR;
     }
   }
@@ -388,7 +404,7 @@ bool CheckIfAtHome() {
     if(!motorActive[i]) continue;
 
     // Beispiel: Wenn Induktivsensor ausgelöst hat → HOME erreicht
-    if(!digitalRead(inductionSensorPins[i])) {
+    if(digitalRead(inductionSensorPins[i])) {
       allAtHome = false;      // Noch nicht am Home-Punkt
     } else {
       motorActive[i] = false; // Motor stoppen
@@ -406,25 +422,30 @@ void CalculateMotorDirectionAndPosition() {
     // Nicht-odd Motoren drehen von der negativen X-Achse aus
     if (!oddMotor[i]) {
       target = PI - target;
+      motorTargetPosition[i] = target;
     }
-
+    // Serial.println("Motor" + String(i) + " Target:" + String(target) + " Current" + String(motorCurrentPosition[i]));
     // Delta berechnen — je nach Motor-Typ dreht er „umgekehrt“
-    float delta; 
+    float delta;
     if(oddMotor[i]){
       delta = motorCurrentPosition[i] - target; 
       
       if(delta<0){ 
-        motorDirection[i] = 1; 
+        motorDirection[i] = 0; 
       }else{ 
-        motorDirection[i] = 0; } 
+        motorDirection[i] = 1; } 
     }else{ 
       delta = target - motorCurrentPosition[i]; 
         
       if(delta<0){ 
-        motorDirection[i] = 0; 
-      }else{ 
         motorDirection[i] = 1; 
+      }else{ 
+        motorDirection[i] = 0; 
       }
     }
   }
+}
+
+bool CheckIfMotorIsAtPosition(int index) {
+    return fabs(motorCurrentPosition[index] - motorTargetPosition[index]) <= MOTOR_RAD_OFFSET_TOLERANCE;
 }
