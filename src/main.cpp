@@ -38,7 +38,7 @@ const int inductionSensorPins[motorCount] = {33, 32, 35, 34, 39, 36};
 const int oddMotor[motorCount] = {1, 0, 1, 0, 1, 0};
 bool motorActive[motorCount] = {true, true, true, true, true, true};
 
-float motorSpeed = 15;                                        // Overall Motor Speed 15ms
+float motorSpeed = 8;                                        // Overall Motor Speed 15ms
 int motorDirection[motorCount];                             // 0 = rückwärts, 1 = vorwärts
 bool pwmState[motorCount] = {false, false, false, false, false, false};
 unsigned long lastToggle[motorCount] = {0, 0, 0, 0, 0, 0};
@@ -123,7 +123,7 @@ void setup() {
   }
 
   for (int i = 0; i < motorCount; i++) {
-    pinMode(inductionSensorPins[i], INPUT); 
+    pinMode(inductionSensorPins[i], INPUT);
   }
   
 }
@@ -140,7 +140,7 @@ void loop() {
     case STATE_WAIT_FOR_HOME:
       if(CheckIfAtHome()) {     // wartet bis true 
         systemState = STATE_RUNNING;
-        // Serial.println("##############Is home normal State is rechead!####################");
+        Serial.println("##############  Home normal State is rechead!  ####################");
       }
       break;
 
@@ -150,7 +150,7 @@ void loop() {
         CalculateMotorDirectionAndPosition();
         for (int i = 0; i < motorCount; i++){
           motorActive[i] = !CheckIfMotorIsAtPosition(i);
-          // Serial.println("Motor state fuer" + String(i) + String(motorActive[i]));
+          Serial.println("Motor state fuer" + String(i) + String(motorActive[i]));
         }
       }
       break;
@@ -373,8 +373,8 @@ void UpdatePWM() {
     // Rad hinzufügen zu aktueller Position
     if(systemState == STATE_RUNNING){
       // Serial.println("Before Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
-      motorCurrentPosition[i] += motorDirection[i] ? -RAD_PER_SIGNAL : RAD_PER_SIGNAL;
-      // Serial.println("After Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+      motorCurrentPosition[i] += motorDirection[i] ? +RAD_PER_SIGNAL : -RAD_PER_SIGNAL;
+      Serial.println("After Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
       motorActive[i] = !CheckIfMotorIsAtPosition(i);
       // Serial.println("Set Motor Line 375: " + String(motorActive[i]) + String(i));
     }
@@ -431,16 +431,16 @@ void CalculateMotorDirectionAndPosition() {
       delta = motorCurrentPosition[i] - target; 
       
       if(delta<0){ 
-        motorDirection[i] = 0; 
+        motorDirection[i] = 1; 
       }else{ 
-        motorDirection[i] = 1; } 
+        motorDirection[i] = 0; } 
     }else{ 
       delta = target - motorCurrentPosition[i]; 
         
       if(delta<0){ 
-        motorDirection[i] = 1; 
-      }else{ 
         motorDirection[i] = 0; 
+      }else{ 
+        motorDirection[i] = 1; 
       }
     }
   }
