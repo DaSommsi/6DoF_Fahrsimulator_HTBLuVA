@@ -5,6 +5,19 @@
 
 Adafruit_MCP23X17 mcp;
 
+#define DEBUG_MODE 1 // Hier aktivieren Sie den Debug-Modus
+
+#ifdef DEBUG_MODE
+  // Wenn der Debug-Modus AKTIV ist, wird DEBUG_PRINT zu Serial.print()
+  #define DEBUG_PRINT(x) Serial.print(x)
+  #define DEBUG_PRINTLN(x) Serial.println(x)
+#else
+  // Wenn der Debug-Modus INAKTIV ist, wird DEBUG_PRINT zu einem leeren Ausdruck.
+  // Der Compiler entfernt dies komplett und spart Speicher & Zeit.
+  #define DEBUG_PRINT(x)
+  #define DEBUG_PRINTLN(x)
+#endif
+
 // Wichtige-INFOS
 /*
 Aktuell vohrer ESP einstecken ohne Laptop dann Powern und dann erst Serielle Schnitstelle aktivieren. 
@@ -109,11 +122,11 @@ void setup() {
   SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_CS);
 
   if (!mcp.begin_SPI(PIN_CS)) {
-    Serial.println("Fehler: MCP23S17 nicht gefunden!");
+    DEBUG_PRINTLN("Fehler: MCP23S17 nicht gefunden!");
     while (1);
   }
 
-  Serial.println("MCP23S17 verbunden!");
+  DEBUG_PRINTLN("MCP23S17 verbunden!");
 
   for (int i = 0; i < motorCount; i++) {
     mcp.pinMode(pwmPins[i], OUTPUT);
@@ -140,7 +153,7 @@ void loop() {
     case STATE_WAIT_FOR_HOME:
       if(CheckIfAtHome()) {     // wartet bis true 
         systemState = STATE_RUNNING;
-        Serial.println("##############  Home normal State is rechead!  ####################");
+        DEBUG_PRINTLN("##############  Home normal State is rechead!  ####################");
       }
       break;
 
@@ -150,7 +163,7 @@ void loop() {
         CalculateMotorDirectionAndPosition();
         for (int i = 0; i < motorCount; i++){
           motorActive[i] = !CheckIfMotorIsAtPosition(i);
-          Serial.println("Motor state fuer" + String(i) + String(motorActive[i]));
+          DEBUG_PRINTLN("Motor state fuer" + String(i) + String(motorActive[i]));
         }
       }
       break;
@@ -168,7 +181,7 @@ bool ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataA
   // Überprüft ob Daten im Buffer sind
   if (Serial.available() > 0){
     String incomingData = Serial.readStringUntil('\n');     // Daten aus Buffer holen
-    // Serial.println(incomingData);                           // Daten ausgeben um zum Testen
+    // DEBUG_PRINTLN(incomingData);                           // Daten ausgeben um zum Testen
 
     // Daten von String zu den einzelnen Werten umwandeln
     ConvertIncomingDataStringToIntArray(rawDataArray, incomingData);
@@ -277,7 +290,7 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
 
     motorTargetPosition[i] = servoAlpha;
 
-    // Serial.print(String(servoAlpha) + ", ");
+    // DEBUG_PRINT(String(servoAlpha) + ", ");
 
     // servoAlpha = asin((pow(segmentLength, 2) - (pow(SERVOARM_ARM_LENGHT, 2) - pow(SERVOARM_LENGHT, 2))) / (sqrt(pow(_2a * (PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2]), 2) + pow((_2a * (cosBeta * (PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0])) + sinBeta * (PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1])), 2)))) - atan((_2a * (PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2])) / (_2a * ((cosBeta * (PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0])) + (sinBeta * (PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1])))));
   }
@@ -372,11 +385,11 @@ void UpdatePWM() {
 
     // Rad hinzufügen zu aktueller Position
     if(systemState == STATE_RUNNING){
-      // Serial.println("Before Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+      // DEBUG_PRINTLN("Before Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
       motorCurrentPosition[i] += motorDirection[i] ? +RAD_PER_SIGNAL : -RAD_PER_SIGNAL;
-      Serial.println("After Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+      DEBUG_PRINTLN("After Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
       motorActive[i] = !CheckIfMotorIsAtPosition(i);
-      // Serial.println("Set Motor Line 375: " + String(motorActive[i]) + String(i));
+      // DEBUG_PRINTLN("Set Motor Line 375: " + String(motorActive[i]) + String(i));
     }
   }
 }
@@ -424,7 +437,7 @@ void CalculateMotorDirectionAndPosition() {
       target = PI - target;
       motorTargetPosition[i] = target;
     }
-    // Serial.println("Motor" + String(i) + " Target:" + String(target) + " Current" + String(motorCurrentPosition[i]));
+    // DEBUG_PRINTLN("Motor" + String(i) + " Target:" + String(target) + " Current" + String(motorCurrentPosition[i]));
     // Delta berechnen — je nach Motor-Typ dreht er „umgekehrt“
     float delta;
     if(oddMotor[i]){
