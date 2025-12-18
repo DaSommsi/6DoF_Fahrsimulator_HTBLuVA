@@ -5,7 +5,7 @@
 
 Adafruit_MCP23X17 mcp;
 
-#define DEBUG_MODE 1 // Hier aktivieren Sie den Debug-Modus
+// #define DEBUG_MODE 1 // Hier aktivieren Sie den Debug-Modus
 
 #ifdef DEBUG_MODE
   // Wenn der Debug-Modus AKTIV ist, wird DEBUG_PRINT zu Serial.print()
@@ -51,7 +51,7 @@ const int inductionSensorPins[motorCount] = {33, 32, 35, 34, 39, 36};
 const int oddMotor[motorCount] = {1, 0, 1, 0, 1, 0};
 bool motorActive[motorCount] = {true, true, true, true, true, true};
 
-float motorSpeed = 8;                                        // Overall Motor Speed 15ms
+const unsigned long motorInterval = 6;                                        // Overall Motor Speed 15ms
 int motorDirection[motorCount];                             // 0 = rückwärts, 1 = vorwärts
 bool pwmState[motorCount] = {false, false, false, false, false, false};
 unsigned long lastToggle[motorCount] = {0, 0, 0, 0, 0, 0};
@@ -153,11 +153,13 @@ void loop() {
     case STATE_WAIT_FOR_HOME:
       if(CheckIfAtHome()) {     // wartet bis true 
         systemState = STATE_RUNNING;
+        Serial.read();
         DEBUG_PRINTLN("##############  Home normal State is rechead!  ####################");
       }
       break;
 
     case STATE_RUNNING:
+      // Serial.println("Working!!!!!!!!!!!!!!");
       if(ProcessIncomingDataFromSimTools(rawAxisDataArray, normalizedAxisDataArray)) {
         CalculateServoAlpha(normalizedAxisDataArray, calculatedRotationMatrix);
         CalculateMotorDirectionAndPosition();
@@ -174,14 +176,13 @@ void loop() {
 
 // Funktionen
 
-// <1500>,<2500>,<50>,<60>,<842>,<4000>X <2048>,<2048>,<2048>,<2048>,<2048>,<2048>X 
+// <1500>,<2500>,<50>,<60>,<842>,<4000>X 2048,2048,2048,2048,2048,2048X
 
 // Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie, gibt True zurück wenn etwas empfangen wurde
 bool ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]){
   // Überprüft ob Daten im Buffer sind
   if (Serial.available() > 0){
-    String incomingData = Serial.readStringUntil('\n');     // Daten aus Buffer holen
-    // DEBUG_PRINTLN(incomingData);                           // Daten ausgeben um zum Testen
+    String incomingData = Serial.readStringUntil('X');     // Daten aus Buffer holen
 
     // Daten von String zu den einzelnen Werten umwandeln
     ConvertIncomingDataStringToIntArray(rawDataArray, incomingData);
@@ -204,32 +205,32 @@ bool ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataA
 
 // Die Funktion extrahiert die Zahlenwerte die in dem Daten String sind und verpackt sie uns in einen Array den wir dann nutzen können
 void ConvertIncomingDataStringToIntArray(float axisData[], const String& inputData){
-  int axisIndex = 0;                // Index für das Array
-  bool insideBracket = false;       // Flag, ob wir gerade zwischen < > sind
-  String currentValue = "";         // Temporäre Speicherung des aktuellen Werts
+  int axisIndex = 0;
+  int strLength = inputData.length();
+  String currentValue = ""; 
 
-  
-  for(int i = 0; i<inputData.length(); i++){
-    char currentChar = inputData.charAt(i);
+  for(int i = 0; i < strLength; i++){
+    char c = inputData.charAt(i);
 
-    if(currentChar == '<'){
-      insideBracket = true;
-      currentValue = ""; // Neues Zahlenfragment anfangen
-    }
-    else if(currentChar == '>'){
-      if(insideBracket && axisIndex < 6){
-        axisData[axisIndex++] = currentValue.toFloat(); // Umwandlung und Speichern
+    // Wenn das Zeichen eine Zahl, ein Punkt oder ein Minus ist, sammeln
+    if(isDigit(c) || c == '.' || c == '-'){
+      currentValue += c;
+    } 
+    // Wenn ein Komma kommt oder wir am Ende des Strings ('X' oder String-Ende) sind
+    if (c == ',' || i == strLength - 1) {
+      if(currentValue.length() > 0 && axisIndex < 6){
+        axisData[axisIndex] = currentValue.toFloat();
+        axisIndex++;
+        currentValue = ""; // String leeren für die nächste Zahl
       }
-      insideBracket = false;
-    }
-    else if(insideBracket){
-      currentValue += currentChar; // Zeichen anhängen
     }
   }
 
-  // Falls weniger als 6 Werte empfangen wurden → Rest auffüllen mit 0
+  // Wichtig: Falls SimTools weniger als 6 Achsen schickt, 
+  // füllen wir den Rest mit dem Mittelwert (2047) auf, damit nichts crasht.
   while(axisIndex < 6){
-    axisData[axisIndex++] = 0;
+    axisData[axisIndex] = 2047.0; 
+    axisIndex++;
   }
 }
 
@@ -374,23 +375,23 @@ void UpdatePWM() {
       continue;
     }
 
-    if (now - lastToggle[i] >= motorSpeed) {
+    if (now - lastToggle[i] >= motorInterval) {
       lastToggle[i] = now;
       pwmState[i] = !pwmState[i];
       mcp.digitalWrite(pwmPins[i], pwmState[i]);
-    }
 
-    // Richtung setzen
-    mcp.digitalWrite(directionPins[i], motorDirection[i]);
+      // Richtung setzen
+      mcp.digitalWrite(directionPins[i], motorDirection[i]);
 
-    // Rad hinzufügen zu aktueller Position
-    if(systemState == STATE_RUNNING){
-      // DEBUG_PRINTLN("Before Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
-      motorCurrentPosition[i] += motorDirection[i] ? +RAD_PER_SIGNAL : -RAD_PER_SIGNAL;
-      DEBUG_PRINTLN("After Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
-      motorActive[i] = !CheckIfMotorIsAtPosition(i);
-      // DEBUG_PRINTLN("Set Motor Line 375: " + String(motorActive[i]) + String(i));
-    }
+      // Rad hinzufügen zu aktueller Position
+      if(systemState == STATE_RUNNING){
+        // DEBUG_PRINTLN("Before Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+        motorCurrentPosition[i] += motorDirection[i] ? +RAD_PER_SIGNAL : -RAD_PER_SIGNAL;
+        DEBUG_PRINTLN("After Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+        motorActive[i] = !CheckIfMotorIsAtPosition(i);
+        // DEBUG_PRINTLN("Set Motor Line 375: " + String(motorActive[i]) + String(i));
+      }
+    } 
   }
 }
 
