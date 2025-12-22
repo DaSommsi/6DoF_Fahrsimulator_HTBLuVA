@@ -58,6 +58,11 @@ unsigned long lastToggle[motorCount] = {0, 0, 0, 0, 0, 0};
 float motorCurrentPosition[motorCount];
 float motorTargetPosition[motorCount];
 
+// Saftey
+
+float lastValidTarget[6];
+const float MAX_STEP_CHANGE = 0.1; // Maximale Änderung pro Zyklus in Rad
+
 // ######## Globale Konstanten (in cm) ########
 
 constexpr float PLATFORM_TO_BASE_DISPLACMENT[3] = {0.0, 0.0, 62.5};
@@ -303,11 +308,16 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
       continue; 
     }
 
+    float diff = servoAlpha - lastValidTarget[i];
+
+    if (abs(diff) > MAX_STEP_CHANGE) {
+      servoAlpha = lastValidTarget[i] + (diff > 0 ? MAX_STEP_CHANGE : -MAX_STEP_CHANGE);
+    }
+    lastValidTarget[i] = servoAlpha;
+
     motorTargetPosition[i] = servoAlpha;
 
-    // DEBUG_PRINT(String(servoAlpha) + ", ");
-
-    // servoAlpha = asin((pow(segmentLength, 2) - (pow(SERVOARM_ARM_LENGHT, 2) - pow(SERVOARM_LENGHT, 2))) / (sqrt(pow(_2a * (PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2]), 2) + pow((_2a * (cosBeta * (PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0])) + sinBeta * (PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1])), 2)))) - atan((_2a * (PLATFORM_JOINT_COORDINATES[i][2] - BASE_SERVO_COORDINATES[i][2])) / (_2a * ((cosBeta * (PLATFORM_JOINT_COORDINATES[i][0] - BASE_SERVO_COORDINATES[i][0])) + (sinBeta * (PLATFORM_JOINT_COORDINATES[i][1] - BASE_SERVO_COORDINATES[i][1])))));
+    DEBUG_PRINT(String(servoAlpha) + ", ");
   }
 }
 
