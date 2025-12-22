@@ -18,12 +18,6 @@ Adafruit_MCP23X17 mcp;
   #define DEBUG_PRINTLN(x)
 #endif
 
-// Wichtige-INFOS
-/*
-Aktuell vohrer ESP einstecken ohne Laptop dann Powern und dann erst Serielle Schnitstelle aktivieren. 
-
-*/
-
 // SPI Pins
 #define PIN_MISO 12
 #define PIN_MOSI 13
@@ -51,7 +45,11 @@ const int inductionSensorPins[motorCount] = {33, 32, 35, 34, 39, 36};
 const int oddMotor[motorCount] = {1, 0, 1, 0, 1, 0};
 bool motorActive[motorCount] = {true, true, true, true, true, true};
 
-const unsigned long motorInterval = 6;                                        // Overall Motor Speed 15ms
+const unsigned int motorIntervalHome = 30;
+const unsigned int motorIntervalRunning = 6;
+
+unsigned long motorInterval = 30;                      // Overall Motor Speed 6ms
+
 int motorDirection[motorCount];                             // 0 = rückwärts, 1 = vorwärts
 bool pwmState[motorCount] = {false, false, false, false, false, false};
 unsigned long lastToggle[motorCount] = {0, 0, 0, 0, 0, 0};
@@ -62,14 +60,14 @@ float motorTargetPosition[motorCount];
 
 // ######## Globale Konstanten (in cm) ########
 
-constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{15.0, -55.5, 62.5}, // Rechts unten Point 1
-                                                    {54.5, 14.5, 62.5}, // Rechts mitte  Point 2
-                                                    {39.5, 39.5, 62.5}, // Rechts oben Point 3
-                                                    {-39.5, 39.5, 62.5}, // Links oben Point 4
-                                                    {-54.5, 14.5, 62.5}, // Links mitte  Point 5
-                                                    {-15.0, -55.5, 62.5}}; // Links unten Point 6
-
 constexpr float PLATFORM_TO_BASE_DISPLACMENT[3] = {0.0, 0.0, 62.5};
+
+constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{15.0, -55.5, PLATFORM_TO_BASE_DISPLACMENT[2]}, // Rechts unten Point 1
+                                                    {54.5, 14.5, PLATFORM_TO_BASE_DISPLACMENT[2]}, // Rechts mitte  Point 2
+                                                    {39.5, 39.5, PLATFORM_TO_BASE_DISPLACMENT[2]}, // Rechts oben Point 3
+                                                    {-39.5, 39.5, PLATFORM_TO_BASE_DISPLACMENT[2]}, // Links oben Point 4
+                                                    {-54.5, 14.5, PLATFORM_TO_BASE_DISPLACMENT[2]}, // Links mitte  Point 5
+                                                    {-15.0, -55.5, PLATFORM_TO_BASE_DISPLACMENT[2]}}; // Links unten Point 6
 
 constexpr float BASE_SERVO_COORDINATES[6][3] = {{23.0, -38.7, 0}, // Rechts unten Servo 1
                                                 {45.0, 0, 0}, // Rechts mitte Servo 2
@@ -95,7 +93,8 @@ const float RAD_BEFORE_IND_SENSOR = 5 * PI / 180;
 enum SystemState {
   STATE_GOTO_HOME,
   STATE_WAIT_FOR_HOME,
-  STATE_RUNNING
+  STATE_RUNNING,
+  STATE_ERROR
 };
 
 SystemState systemState = STATE_GOTO_HOME;
@@ -138,7 +137,8 @@ void setup() {
   for (int i = 0; i < motorCount; i++) {
     pinMode(inductionSensorPins[i], INPUT);
   }
-  
+
+  motorInterval = motorIntervalHome;
 }
 
 void loop() {
@@ -146,6 +146,7 @@ void loop() {
   switch(systemState) {
 
     case STATE_GOTO_HOME:
+      motorInterval = motorIntervalHome;  
       GoToHomePosition();       // nur einmal gesendet
       systemState = STATE_WAIT_FOR_HOME;
       break;
@@ -154,6 +155,7 @@ void loop() {
       if(CheckIfAtHome()) {     // wartet bis true 
         systemState = STATE_RUNNING;
         Serial.read();
+        motorInterval = motorIntervalRunning;
         DEBUG_PRINTLN("##############  Home normal State is rechead!  ####################");
       }
       break;
@@ -169,14 +171,20 @@ void loop() {
         }
       }
       break;
+
+      case STATE_ERROR:
+        for (int i = 0; i < motorCount; i++){
+          motorActive[i] = false;
+        }
+        break;
   }
 
-  UpdatePWM();   // PWM muss natürlich immer weiterlaufen
+  if(systemState != STATE_ERROR) UpdatePWM();   // PWM muss natürlich immer weiterlaufen
 }
 
 // Funktionen
 
-// <1500>,<2500>,<50>,<60>,<842>,<4000>X 2048,2048,2048,2048,2048,2048X
+// 1500,2500,50,60,842,4000X 2048,2048,2048,2048,2048,2048X
 
 // Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie, gibt True zurück wenn etwas empfangen wurde
 bool ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]){
@@ -289,6 +297,12 @@ void CalculateServoAlpha(float normalizedDataArray[], float rotationMatrix[3][3]
 
     servoAlpha = asinTerm - atanTerm;
 
+    if (isnan(servoAlpha)) {
+      DEBUG_PRINTLN("FEHLER: Zielposition mathematisch nicht erreichbar!");
+      systemState = STATE_ERROR; 
+      continue; 
+    }
+
     motorTargetPosition[i] = servoAlpha;
 
     // DEBUG_PRINT(String(servoAlpha) + ", ");
@@ -373,6 +387,13 @@ void UpdatePWM() {
       // Motor deaktiviert → ausschalten
       mcp.digitalWrite(pwmPins[i], LOW);
       continue;
+    }
+
+    if (digitalRead(inductionSensorPins[i]) == LOW && systemState == STATE_RUNNING) {
+        motorActive[i] = false;
+        DEBUG_PRINTLN("NOT-HALT: Endschalter Motor " + String(i));
+        systemState = STATE_ERROR;
+        continue;
     }
 
     if (now - lastToggle[i] >= motorInterval) {
