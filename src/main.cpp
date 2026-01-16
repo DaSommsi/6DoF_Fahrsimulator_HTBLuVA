@@ -45,8 +45,8 @@ const int inductionSensorPins[motorCount] = {33, 32, 35, 34, 39, 36};
 const int oddMotor[motorCount] = {1, 0, 1, 0, 1, 0};
 bool motorActive[motorCount] = {true, true, true, true, true, true};
 
-const unsigned int motorIntervalHome = 30;
-const unsigned int motorIntervalRunning = 6;
+const unsigned int motorIntervalHome = 20;
+const unsigned int motorIntervalRunning = 20;
 
 unsigned long motorInterval = 30;                      // Overall Motor Speed 6ms
 
@@ -58,6 +58,23 @@ unsigned long lastToggle[motorCount] = {0, 0, 0, 0, 0, 0};
 float motorCurrentPosition[motorCount];
 float motorTargetPosition[motorCount];
 
+// Taster
+const int eStopGPIO = 21;
+const int startTasterGPIO = 23;
+const int stopTasterGPIO = 22;
+
+unsigned long lastDebounceStart = 0;
+unsigned long lastDebounceStop = 0;
+const unsigned long debounceDelay = 50;
+
+bool lastStartState = HIGH;
+bool lastStopState = HIGH;
+
+int buttonStateStart = HIGH; 
+int buttonStateStop = HIGH;
+
+bool fromBeginningToBase = true;
+
 // Saftey
 
 float lastValidTarget[6];
@@ -65,7 +82,7 @@ const float MAX_STEP_CHANGE = 0.1; // Maximale Änderung pro Zyklus in Rad
 
 // ######## Globale Konstanten (in cm) ########
 
-constexpr float PLATFORM_TO_BASE_DISPLACMENT[3] = {0.0, 0.0, 62.5};
+constexpr float PLATFORM_TO_BASE_DISPLACMENT[3] = {0.0, 0.0, 50.0};
 
 constexpr float PLATFORM_JOINT_COORDINATES[6][3] = {{15.0, -55.5, PLATFORM_TO_BASE_DISPLACMENT[2]}, // Rechts unten Point 1
                                                     {54.5, 14.5, PLATFORM_TO_BASE_DISPLACMENT[2]}, // Rechts mitte  Point 2
@@ -87,22 +104,28 @@ const float SERVOARM_LENGHT = 37.5f;
 const float SERVO_BETA[6] = {30, 90, 150, 210, 270, 330};
 
 const float MOTOR_MAX_STEP_RESULTION = 500000.0f;
-const float MOTOR_STEPS_PER_SIGNAL = 1000.0f;
+const float MOTOR_STEPS_PER_SIGNAL = 250.0f;
 const float RAD_PER_SIGNAL = (MOTOR_STEPS_PER_SIGNAL/MOTOR_MAX_STEP_RESULTION) * 2 * PI;
 const float MOTOR_RAD_OFFSET_TOLERANCE = 1 * PI / 180;
 
 const float RAD_BEFORE_IND_SENSOR = 5 * PI / 180;
 
+const float BASE_MOTOR_POSITIONS[6] = {-0.5f, -0.5f, -0.5f, -0.5f, -0.5f, -0.5f};
+
 // Anderes
 
 enum SystemState {
-  STATE_GOTO_HOME,
-  STATE_WAIT_FOR_HOME,
-  STATE_RUNNING,
-  STATE_ERROR
+  STATE_GOTO_HOME,      //0
+  STATE_WAIT_FOR_HOME,  //1
+  STATE_RUNNING,        //2
+  STATE_GOTO_BASE,      //3
+  STATE_GOING_BASE,     //4
+  STATE_AT_BASE,        //5
+  STATE_WAITING,        //6
+  STATE_ERROR           //7
 };
 
-SystemState systemState = STATE_GOTO_HOME;
+SystemState systemState = STATE_WAITING;
 
 // Funktionen
 
@@ -143,10 +166,78 @@ void setup() {
     pinMode(inductionSensorPins[i], INPUT);
   }
 
+  pinMode(eStopGPIO, INPUT_PULLUP);
+  pinMode(startTasterGPIO, INPUT_PULLUP);
+  pinMode(stopTasterGPIO, INPUT_PULLUP);
+
   motorInterval = motorIntervalHome;
 }
 
+// Aktuell geht er automatisch in die Home aber wir brauchen eigentlich die Einsteig Position in die der Sim fahren soll zu beginn bzw er sollte da schon sein, extra muss dazu wenn sim nicht in der Einsteig position beendet wurde dann muss er durch einen den Taster der gedrückt wird und dann der Reste auf dem ESP der checkt das der Taster beim Booten gedrückt wird und dann vohrer in die Home fährt und dann in die Einsteig position
+
 void loop() {
+
+  // --- NOT-AUS (E-STOP) ---
+  if(digitalRead(eStopGPIO) == HIGH) {
+    if(systemState != STATE_ERROR) {
+        Serial.println("!!! E-STOP AUSGELOEST !!!");
+        systemState = STATE_ERROR;
+        fromBeginningToBase = true;
+    }
+  }
+
+  // --- START TASTER (Debounce & Flankenerkennung) ---
+  int readingStart = digitalRead(startTasterGPIO);
+
+  // Reset Timer wenn sich das Rauschen ändert
+  if (readingStart != lastStartState) {
+      lastDebounceStart = millis();
+  }
+
+  if ((millis() - lastDebounceStart) > debounceDelay) {
+      // Wenn der Wert länger stabil ist als Delay:
+      if (readingStart != buttonStateStart) {
+          buttonStateStart = readingStart;
+
+          if (buttonStateStart == LOW) {
+              if (systemState == STATE_AT_BASE && fromBeginningToBase == false) {
+                  DEBUG_PRINTLN("Start Taste gedrückt -> Running");
+                  systemState = STATE_RUNNING;
+              }else{
+                  DEBUG_PRINTLN("Start Taste gedrückt -> Go Home");
+                  systemState = STATE_GOTO_HOME;
+              }
+          }
+      }
+  }
+  lastStartState = readingStart;
+
+  // --- STOP TASTER (Debounce & Flankenerkennung) ---
+  int readingStop = digitalRead(stopTasterGPIO);
+
+  if (readingStop != lastStopState) {
+      lastDebounceStop = millis();
+  }
+
+  if ((millis() - lastDebounceStop) > debounceDelay) {
+      if (readingStop != buttonStateStop) {
+          buttonStateStop = readingStop;
+
+          if (buttonStateStop == HIGH) {
+              DEBUG_PRINTLN("Stop Taste gedrückt");
+              if (systemState != STATE_AT_BASE && fromBeginningToBase == false && systemState != STATE_ERROR) {
+                  DEBUG_PRINTLN("Stop Taste gedrückt -> Go Base");
+                  systemState = STATE_GOTO_BASE;
+              }
+              
+              else if (systemState != STATE_AT_BASE && fromBeginningToBase == true && systemState != STATE_ERROR) {
+                  DEBUG_PRINTLN("Stop Taste (Init) -> Go Home");
+                  systemState = STATE_GOTO_HOME;
+              }
+          }
+      }
+  }
+  lastStopState = readingStop;
 
   switch(systemState) {
 
@@ -158,7 +249,14 @@ void loop() {
 
     case STATE_WAIT_FOR_HOME:
       if(CheckIfAtHome()) {     // wartet bis true 
-        systemState = STATE_RUNNING;
+        if(fromBeginningToBase == false){
+          systemState = STATE_RUNNING;
+        }else{
+          systemState = STATE_GOTO_BASE;
+          DEBUG_PRINTLN("STATE_GOTO_BASE");
+        }
+        while(Serial.available() > 0) Serial.read(); // Puffer komplett leeren
+        fromBeginningToBase = false;
         Serial.read();
         motorInterval = motorIntervalRunning;
         DEBUG_PRINTLN("##############  Home normal State is rechead!  ####################");
@@ -166,7 +264,7 @@ void loop() {
       break;
 
     case STATE_RUNNING:
-      // Serial.println("Working!!!!!!!!!!!!!!");
+      // Serial.println("Waiting!");
       if(ProcessIncomingDataFromSimTools(rawAxisDataArray, normalizedAxisDataArray)) {
         CalculateServoAlpha(normalizedAxisDataArray, calculatedRotationMatrix);
         CalculateMotorDirectionAndPosition();
@@ -177,26 +275,52 @@ void loop() {
       }
       break;
 
+      case STATE_GOTO_BASE:
+        memcpy(motorTargetPosition, BASE_MOTOR_POSITIONS, sizeof(BASE_MOTOR_POSITIONS));
+        for (int i = 0; i < motorCount; i++){
+          motorActive[i] = true;
+        }
+        CalculateMotorDirectionAndPosition();
+        systemState = STATE_GOING_BASE;
+        break;
+
+      case STATE_GOING_BASE: {
+        bool stillMoving = false;
+        for (int i = 0; i < motorCount; i++){
+            // motorActive[i] = !CheckIfMotorIsAtPosition(i);
+            if(motorActive[i]) stillMoving = true;
+        }
+        if(!stillMoving) {
+            systemState = STATE_AT_BASE; // <--- Zurück in den Ruhemodus
+            DEBUG_PRINTLN("Base erreicht.");
+        }
+        break;
+      }
+      
+      case STATE_WAITING:
+        break;
+
       case STATE_ERROR:
         for (int i = 0; i < motorCount; i++){
           motorActive[i] = false;
         }
+        Serial.println("ERROR STATE");
         break;
   }
 
-  if(systemState != STATE_ERROR) UpdatePWM();   // PWM muss natürlich immer weiterlaufen
+  if(systemState != STATE_ERROR && systemState != STATE_WAITING) UpdatePWM();
 }
 
 // Funktionen
 
-// 1500,2500,50,60,842,4000X 2048,2048,2048,2048,2048,2048X
+// 1500,2500,50,60,842,4000X 2048,2048,3000,2048,2048,2048X
 
 // Funktion wird dauerhaft aufgerufen und nimmt die Daten entgegen und verarbeitet sie, gibt True zurück wenn etwas empfangen wurde
 bool ProcessIncomingDataFromSimTools(float rawDataArray[], float normalizedDataArray[]){
   // Überprüft ob Daten im Buffer sind
   if (Serial.available() > 0){
     String incomingData = Serial.readStringUntil('X');     // Daten aus Buffer holen
-
+    Serial.println(incomingData);
     // Daten von String zu den einzelnen Werten umwandeln
     ConvertIncomingDataStringToIntArray(rawDataArray, incomingData);
 
@@ -399,12 +523,12 @@ void UpdatePWM() {
       continue;
     }
 
-    if (digitalRead(inductionSensorPins[i]) == LOW && systemState == STATE_RUNNING) {
+    /*if (digitalRead(inductionSensorPins[i]) == LOW && systemState == STATE_RUNNING) {
         motorActive[i] = false;
         DEBUG_PRINTLN("NOT-HALT: Endschalter Motor " + String(i));
         systemState = STATE_ERROR;
         continue;
-    }
+    }*/
 
     if (now - lastToggle[i] >= motorInterval) {
       lastToggle[i] = now;
@@ -415,12 +539,14 @@ void UpdatePWM() {
       mcp.digitalWrite(directionPins[i], motorDirection[i]);
 
       // Rad hinzufügen zu aktueller Position
-      if(systemState == STATE_RUNNING){
-        // DEBUG_PRINTLN("Before Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
-        motorCurrentPosition[i] += motorDirection[i] ? +RAD_PER_SIGNAL : -RAD_PER_SIGNAL;
-        DEBUG_PRINTLN("After Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
-        motorActive[i] = !CheckIfMotorIsAtPosition(i);
-        // DEBUG_PRINTLN("Set Motor Line 375: " + String(motorActive[i]) + String(i));
+      if(pwmState[i] == HIGH){
+        if(systemState == STATE_RUNNING || systemState == STATE_GOING_BASE){
+          //DEBUG_PRINTLN("Before Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+          motorCurrentPosition[i] += motorDirection[i] ? +RAD_PER_SIGNAL : -RAD_PER_SIGNAL;
+          DEBUG_PRINTLN("After Motor" + String(i) + " Direction:" + String(motorDirection[i]) + " Target:" + String(motorTargetPosition[i]) + " Current" + String(motorCurrentPosition[i]));
+          motorActive[i] = !CheckIfMotorIsAtPosition(i);
+          //DEBUG_PRINTLN("Set Motor Line 375: " + String(motorActive[i]) + String(i));
+        }
       }
     } 
   }
